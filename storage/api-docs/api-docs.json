@@ -517,34 +517,6 @@
             }
         },
         "/api/courses/{id}": {
-            "get": {
-                "tags": [
-                    "Courses"
-                ],
-                "summary": "获取课程详情",
-                "operationId": "f170bd35e3106c9d9bf5807499c80b68",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "课程ID",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功"
-                    }
-                },
-                "security": [
-                    {
-                        "bearer_token": []
-                    }
-                ]
-            },
             "put": {
                 "tags": [
                     "Courses"
@@ -596,13 +568,15 @@
                         "bearer_token": []
                     }
                 ]
-            },
-            "delete": {
+            }
+        },
+        "/api/courses/{id}/status": {
+            "put": {
                 "tags": [
                     "Courses"
                 ],
-                "summary": "删除课程",
-                "operationId": "3a2888333ed2868b6102094f5348520e",
+                "summary": "更新课程删除状态",
+                "operationId": "8b447c10a362895e36ed390d6d32a843",
                 "parameters": [
                     {
                         "name": "id",
@@ -614,9 +588,132 @@
                         }
                     }
                 ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "is_del"
+                                ],
+                                "properties": {
+                                    "is_del": {
+                                        "description": "是否删除",
+                                        "type": "boolean"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
-                        "description": "成功"
+                        "description": "状态更新成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "课程状态更新成功"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "课程不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "课程不存在"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer_token": []
+                    }
+                ]
+            }
+        },
+        "/api/dashboard/stats": {
+            "get": {
+                "tags": [
+                    "Dashboard"
+                ],
+                "summary": "获取仪表盘统计数据",
+                "operationId": "594db3e57418c652925acbaa7adab958",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "teachers_count": {
+                                                    "description": "教师数量",
+                                                    "type": "integer"
+                                                },
+                                                "students_count": {
+                                                    "description": "学生数量",
+                                                    "type": "integer"
+                                                },
+                                                "courses_count": {
+                                                    "description": "课程数量",
+                                                    "type": "integer"
+                                                },
+                                                "invoices_count": {
+                                                    "description": "账单数量",
+                                                    "type": "integer"
+                                                },
+                                                "pending_invoices": {
+                                                    "description": "待支付账单数量",
+                                                    "type": "integer"
+                                                },
+                                                "paid_invoices": {
+                                                    "description": "已支付账单数量",
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "未授权"
                     }
                 },
                 "security": [
@@ -804,34 +901,6 @@
                         }
                     }
                 },
-                "responses": {
-                    "200": {
-                        "description": "成功"
-                    }
-                },
-                "security": [
-                    {
-                        "bearer_token": []
-                    }
-                ]
-            },
-            "delete": {
-                "tags": [
-                    "Invoices"
-                ],
-                "summary": "删除账单",
-                "operationId": "f6705ba1adcf67585cb5f13627c592ae",
-                "parameters": [
-                    {
-                        "name": "id",
-                        "in": "path",
-                        "description": "账单ID",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "成功"
@@ -1302,6 +1371,107 @@
                         "bearer_token": []
                     }
                 ]
+            },
+            "put": {
+                "tags": [
+                    "Students"
+                ],
+                "summary": "更新学生信息",
+                "operationId": "ab4663f1b3d03e5867d9dce3e8fa14a3",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "学生ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "username",
+                                    "name",
+                                    "email"
+                                ],
+                                "properties": {
+                                    "username": {
+                                        "description": "用户名",
+                                        "type": "string"
+                                    },
+                                    "name": {
+                                        "description": "姓名",
+                                        "type": "string"
+                                    },
+                                    "email": {
+                                        "description": "邮箱",
+                                        "type": "string"
+                                    },
+                                    "password": {
+                                        "description": "密码（可选）",
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "学生信息更新成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "学生信息更新成功"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "学生不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "学生不存在"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer_token": []
+                    }
+                ]
             }
         },
         "/api/students/{id}/courses": {
@@ -1363,6 +1533,95 @@
                     }
                 ]
             }
+        },
+        "/api/students/{id}/status": {
+            "put": {
+                "tags": [
+                    "Students"
+                ],
+                "summary": "更新学生状态",
+                "operationId": "e27a0a9eb67bb4291b9c880db88f336b",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "学生ID",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "is_active"
+                                ],
+                                "properties": {
+                                    "is_active": {
+                                        "description": "是否启用",
+                                        "type": "boolean"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "状态更新成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "学生状态更新成功"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "学生不存在",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "学生不存在"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearer_token": []
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -1378,6 +1637,10 @@
         {
             "name": "Courses",
             "description": "课程管理接口"
+        },
+        {
+            "name": "Dashboard",
+            "description": "仪表盘统计接口"
         },
         {
             "name": "Invoices",
