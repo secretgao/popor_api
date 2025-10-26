@@ -9,10 +9,6 @@
         {
             "url": "http://api.localhost",
             "description": "开发环境"
-        },
-        {
-            "url": "https://poper-ops-interview-04.herokuapp.com",
-            "description": "生产环境"
         }
     ],
     "paths": {
@@ -964,78 +960,6 @@
                 }
             }
         },
-        "/api/payment/create-token": {
-            "post": {
-                "tags": [
-                    "Payment"
-                ],
-                "summary": "创建支付令牌",
-                "description": "创建 Omise 支付令牌",
-                "operationId": "32feacddaef67177fd51eb5a88736987",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "properties": {
-                                    "name": {
-                                        "type": "string",
-                                        "example": "John Doe"
-                                    },
-                                    "number": {
-                                        "type": "string",
-                                        "example": "4242424242424242"
-                                    },
-                                    "expiration_month": {
-                                        "type": "string",
-                                        "example": "12"
-                                    },
-                                    "expiration_year": {
-                                        "type": "string",
-                                        "example": "2025"
-                                    },
-                                    "security_code": {
-                                        "type": "string",
-                                        "example": "123"
-                                    }
-                                },
-                                "type": "object"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "example": true
-                                        },
-                                        "data": {
-                                            "properties": {
-                                                "token_id": {
-                                                    "type": "string",
-                                                    "example": "tokn_test_xxx"
-                                                }
-                                            },
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "请求错误"
-                    }
-                }
-            }
-        },
         "/api/payment/process": {
             "post": {
                 "tags": [
@@ -1200,6 +1124,72 @@
                         "bearer_token": []
                     }
                 ]
+            }
+        },
+        "/api/payment/webhook": {
+            "post": {
+                "tags": [
+                    "Payment"
+                ],
+                "summary": "Omise Webhook 处理",
+                "description": "处理 Omise 支付网关的 webhook 事件",
+                "operationId": "e3d80c0b0c142b0befc4293cca0bcc75",
+                "parameters": [
+                    {
+                        "name": "X-Omise-Signature",
+                        "in": "header",
+                        "description": "Omise 签名",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "description": "Omise webhook 事件数据",
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "处理成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "ok"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "签名验证失败",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Invalid signature"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
             }
         },
         "/api/students": {

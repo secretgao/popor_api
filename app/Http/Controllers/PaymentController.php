@@ -303,7 +303,43 @@ class PaymentController extends Controller
     }
 
     /**
-     * Webhook 处理
+     * @OA\Post(
+     *     path="/api/payment/webhook",
+     *     tags={"Payment"},
+     *     summary="Omise Webhook 处理",
+     *     description="处理 Omise 支付网关的 webhook 事件",
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\MediaType(
+     *             mediaType="application/json",
+     *             @OA\Schema(
+     *                 type="object",
+     *                 description="Omise webhook 事件数据"
+     *             )
+     *         )
+     *     ),
+     *     @OA\Parameter(
+     *         name="X-Omise-Signature",
+     *         in="header",
+     *         description="Omise 签名",
+     *         required=false,
+     *         @OA\Schema(type="string")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="处理成功",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string", example="ok")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="签名验证失败",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="error", type="string", example="Invalid signature")
+     *         )
+     *     )
+     * )
      */
     public function webhook(Request $request)
     {
