@@ -97,18 +97,35 @@ class PaymentController extends Controller
      */
     public function processPayment(Request $request)
     {
-        Log::channel('omise')->info('processPayment-参数', [
-            'data' => $request->all()
+        Log::channel('omise')->info('processPayment-原始参数', [
+            'raw_data' => $request->all()
         ]);
-        $validator = Validator::make($request->all(), [
+        
+        // 处理可能被包装在 data 对象中的数据
+        $requestData = $request->all();
+        if (isset($requestData['data']) && is_array($requestData['data'])) {
+            $requestData = $requestData['data'];
+            Log::channel('omise')->info('processPayment-解包数据', [
+                'unpacked_data' => $requestData
+            ]);
+        }
+        
+        Log::channel('omise')->info('processPayment-最终参数', [
+            'final_data' => $requestData
+        ]);
+        
+        $validator = Validator::make($requestData, [
             'token' => 'required|string',
             'amount' => 'required|numeric|min:1',
             'currency' => 'required|string|in:THB,USD,EUR,JPY,SGD',
             'description' => 'nullable|string|max:255',
-            'invoice_id' => 'nullable|string|max:255', // 添加发票ID支持
+            'invoice_id' => 'required|int|max:255', // 添加发票ID支持
         ]);
 
         if ($validator->fails()) {
+            Log::channel('omise')->error('processPayment-验证失败', [
+                'errors' => $validator->errors()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => '验证失败',
@@ -117,9 +134,9 @@ class PaymentController extends Controller
         }
 
         // 构建支付数据，包含 metadata
-        $paymentData = $request->all();
+        $paymentData = $requestData;
         $paymentData['metadata'] = [
-            'invoice_id' => $request->invoice_id,
+            'invoice_id' => $requestData['invoice_id'] ?? null,
             'user_id' => $request->attributes->get('auth_user')->user_id ?? null,
             'timestamp' => now()->toISOString(),
         ];
@@ -133,7 +150,7 @@ class PaymentController extends Controller
                 'amount' => $result['amount'],
                 'currency' => $result['currency'],
                 'user_id' => $request->attributes->get('auth_user')->user_id ?? null,
-                'invoice_id' => $request->invoice_id,
+                'invoice_id' => $requestData['invoice_id'] ?? null,
                 'transaction_id' => $result['transaction_id']
             ]);
 

@@ -11,23 +11,23 @@ return [
     */
 
     // 公钥（前端使用）
-    'public_key' => env('OMISE_PUBLIC_KEY', 'pkey_test_65ggqd9jdlaax89pkex'),
+    'public_key' => 'pkey_test_65ggqd9jdlaax89pkex',
 
     // 私钥（后端使用）
-    'secret_key' => env('OMISE_SECRET_KEY', 'skey_test_65ggqda75e2fzsxfvty'),
+    'secret_key' => 'skey_test_65ggqda75e2fzsxfvty',
 
     // 环境设置
-    'environment' => env('OMISE_ENVIRONMENT', 'test'), // test 或 live
+    'environment' => 'test', // test 或 live
 
     // 默认货币
-    'default_currency' => env('OMISE_DEFAULT_CURRENCY', 'THB'),
+    'default_currency' => 'JPY',
 
     // 支持的货币
     'supported_currencies' => [
-        'THB' => '泰铢',
+        'JPY' => '日元',
         'USD' => '美元',
         'EUR' => '欧元',
-        'JPY' => '日元',
+        'THB' => '泰铢',
         'SGD' => '新加坡元',
     ],
 
@@ -41,18 +41,18 @@ return [
 
     // Webhook 设置
     'webhook' => [
-        'enabled' => env('OMISE_WEBHOOK_ENABLED', true),
-        'url' => env('OMISE_WEBHOOK_URL', '/api/payment/webhook'),
-        'secret' => env('OMISE_WEBHOOK_SECRET'),
+        'enabled' => true,
+        'url' => '/api/payment/webhook',
+        'secret' => 'webhook_secret_test_123456789',
     ],
 
     // 超时设置
-    'timeout' => env('OMISE_TIMEOUT', 30),
+    'timeout' => 30,
 
     // 重试设置
     'retry' => [
-        'enabled' => env('OMISE_RETRY_ENABLED', true),
-        'max_attempts' => env('OMISE_RETRY_MAX_ATTEMPTS', 3),
-        'delay' => env('OMISE_RETRY_DELAY', 1000), // 毫秒
+        'enabled' => true,
+        'max_attempts' => 3,
+        'delay' => 1000, // 毫秒
     ],
 ];
