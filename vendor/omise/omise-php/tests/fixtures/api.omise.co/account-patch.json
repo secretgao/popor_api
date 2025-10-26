@@ -1,0 +1,58 @@
+{
+  "object": "account",
+  "id": "account_test_62e6vi5uwgkfh4aal8o",
+  "team": "acct_62e6vbkqm3ejizkh4qr",
+  "livemode": false,
+  "location": "/account",
+  "country": "TH",
+  "currency": "THB",
+  "email": "developer@opn.ooo",
+  "created_at": "2025-01-13T02:42:11Z",
+  "supported_currencies": [
+    "THB",
+    "JPY",
+    "USD",
+    "EUR",
+    "GBP",
+    "SGD",
+    "AUD",
+    "CHF",
+    "CNY",
+    "DKK",
+    "HKD",
+    "MYR"
+  ],
+  "api_version": "2019-05-29",
+  "auto_activate_recipients": false,
+  "chain_enabled": false,
+  "zero_interest_installments": false,
+  "chain_return_uri": "https://www.omise.co",
+  "webhook_uri": null,
+  "metadata_export_keys": {
+    "charge": [
+
+    ],
+    "transfer": [
+
+    ],
+    "refund": [
+
+    ],
+    "dispute": [
+
+    ]
+  },
+  "chaining_allowed": true,
+  "last_updated_api_version": "2025-01-13",
+  "transfer_config": {
+    "min_transfer_amount": "30.00",
+    "max_transfer_amount": "1000000000.00",
+    "same_bank_max_transfer_amount": "1000000000.00",
+    "is_payout_enabled": false,
+    "fee": "30.00",
+    "provider": "",
+    "merchant_id": "OPNK",
+    "transfer_service_availability": null,
+    "max_active_realtime_transfer_schedules": null
+  }
+}

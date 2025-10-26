@@ -1,1 +1,1 @@
-vendor/
+# vendor/ - 已移除，允许提交 vendor 目录

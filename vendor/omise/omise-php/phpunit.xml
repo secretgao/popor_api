@@ -1,0 +1,63 @@
+<phpunit
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="./vendor/phpunit/phpunit/phpunit.xsd"
+    bootstrap="vendor/autoload.php"
+    backupGlobals="true"
+    backupStaticAttributes="false"
+    colors="true"
+    convertErrorsToExceptions="true"
+    convertNoticesToExceptions="true"
+    convertWarningsToExceptions="true"
+    forceCoversAnnotation="false"
+    processIsolation="false"
+    stopOnError="true"
+    stopOnFailure="false"
+    stopOnIncomplete="false"
+    stopOnSkipped="false"
+    timeoutForSmallTests="1"
+    timeoutForMediumTests="10"
+    timeoutForLargeTests="60"
+    verbose="false">
+
+    <testsuites>
+        <testsuite name="Test">
+            <file>./tests/unit/InitTest.php</file>
+            <file>./tests/unit/ClassExistsTest.php</file>
+            <!-- Resource classes -->
+            <file>./tests/unit/http/OmiseHttpExecutorTest.php</file>
+            <file>./tests/unit/exception/OmiseExceptionTest.php</file>
+            <!-- API classes -->
+            <file>./tests/unit/AccountTest.php</file>
+            <file>./tests/unit/BalanceTest.php</file>
+            <file>./tests/unit/CapabilityTest.php</file>
+            <file>./tests/unit/ChargeTest.php</file>
+            <file>./tests/unit/DisputeTest.php</file>
+            <file>./tests/unit/EventTest.php</file>
+            <file>./tests/unit/ForexTest.php</file>
+            <file>./tests/unit/LinkTest.php</file>
+            <file>./tests/unit/OccurrenceTest.php</file>
+            <file>./tests/unit/ReceiptTest.php</file>
+            <file>./tests/unit/TransferTest.php</file>
+            <file>./tests/unit/RecipientTest.php</file>
+            <file>./tests/unit/RefundTest.php</file>
+            <file>./tests/unit/SchedulerTest.php</file>
+            <file>./tests/unit/SearchTest.php</file>
+            <file>./tests/unit/SourceTest.php</file>
+            <file>./tests/unit/TokenTest.php</file>
+            <file>./tests/unit/TransactionTest.php</file>
+            <file>./tests/unit/CardTest.php</file>
+            <file>./tests/unit/CustomerTest.php</file>
+        </testsuite>
+    </testsuites>
+    <coverage>
+        <include>
+            <directory suffix=".php">./*</directory>
+        </include>
+        <exclude>
+            <file>./lib/Omise.php</file>
+            <directory>tests</directory>
+            <directory>vendor</directory>
+            <directory>examples</directory>
+        </exclude>
+    </coverage>
+</phpunit>
