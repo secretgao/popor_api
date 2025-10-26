@@ -18,7 +18,6 @@ class Invoice extends Model
         'year_month',
         'status',
         'paid_at',
-        'payment_method',
         'currency',
         'omise_charge_id',
         'payment_success',

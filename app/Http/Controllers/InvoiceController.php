@@ -76,7 +76,6 @@ class InvoiceController extends Controller
                     'status',
                     'year_month',
                     'paid_at',
-                    'payment_method',
                     'currency',
                     'created_at'
                 ]);
