@@ -21,8 +21,6 @@ class Invoice extends Model
         'payment_method',
         'currency',
         'omise_charge_id',
-        'omise_source_id',
-        'omise_last_event_id',
         'payment_success',
         'payment_status',
         'payment_transaction_id',

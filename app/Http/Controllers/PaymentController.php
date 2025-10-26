@@ -446,7 +446,7 @@ class PaymentController extends Controller
         // 更新发票状态（如果有 invoice_id）
         if (isset($metadata['invoice_id'])) {
             $this->updateInvoiceStatus($metadata['invoice_id'], Invoice::STATUS_PAID, [
-                'charge_id' => $chargeId,
+                'omise_charge_id' => $chargeId,
                 'transaction_id' => $chargeData['transaction'] ?? null,
                 'amount' => $chargeData['amount'] / 100, // 转换回元
                 'currency' => $chargeData['currency'],
@@ -478,7 +478,7 @@ class PaymentController extends Controller
         // 更新发票状态为失败（如果有 invoice_id）
         if (isset($metadata['invoice_id'])) {
             $this->updateInvoiceStatus($metadata['invoice_id'], Invoice::STATUS_FAILED, [
-                'charge_id' => $chargeId,
+                'omise_charge_id' => $chargeId,
                 'failure_code' => $chargeData['failure_code'] ?? null,
                 'failure_message' => $chargeData['failure_message'] ?? null,
                 'failed_at' => now(),
@@ -506,7 +506,7 @@ class PaymentController extends Controller
         if (isset($metadata['invoice_id'])) {
             $this->updateInvoiceStatus($metadata['invoice_id'], Invoice::STATUS_REFUNDED, [
                 'refund_id' => $refundData['id'],
-                'charge_id' => $chargeId,
+                'omise_charge_id' => $chargeId,
                 'refund_amount' => $refundData['amount'] / 100, // 转换回元
                 'currency' => $refundData['currency'],
                 'refunded_at' => now(),
