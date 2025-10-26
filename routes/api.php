@@ -87,6 +87,7 @@ Route::middleware('api.token')->group(function () {
         Route::post('/', [App\Http\Controllers\InvoiceController::class, 'store']);
         Route::get('/{id}', [App\Http\Controllers\InvoiceController::class, 'show']);
         Route::put('/{id}', [App\Http\Controllers\InvoiceController::class, 'update']);
+        Route::put('/{id}/status', [App\Http\Controllers\InvoiceController::class, 'updateStatus']);
         Route::delete('/{id}', [App\Http\Controllers\InvoiceController::class, 'destroy']);
     });
 });

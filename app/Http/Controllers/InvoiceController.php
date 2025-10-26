@@ -493,11 +493,117 @@ class InvoiceController extends Controller
     private function getStatusName($status)
     {
         switch ($status) {
-            case 0: return 0;      // 待支付
-            case 1: return 1;       // 支付中
-            case 2: return 2;      // 支付成功
-            case 3: return 3;       // 支付失败
+            case 0: return 0;      // 待发送
+            case 1: return 1;      // 待支付
+            case 2: return 2;      // 支付中
+            case 3: return 3;      // 支付成功
+            case 4: return 4;      // 支付失败
             default: return 0;
+        }
+    }
+
+    /**
+     * @OA\Put(
+     *     path="/api/invoices/{id}/status",
+     *     summary="更新账单状态",
+     *     tags={"Invoices"},
+     *     security={{"bearer_token":{}}},
+     *     @OA\Parameter(
+     *         name="id",
+     *         in="path",
+     *         description="账单ID",
+     *         required=true,
+     *         @OA\Schema(type="integer")
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\JsonContent(
+     *             required={"status"},
+     *             @OA\Property(property="status", type="integer", description="新状态值")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="状态更新成功",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="状态更新成功"),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="id", type="integer"),
+     *                 @OA\Property(property="status", type="integer"),
+     *                 @OA\Property(property="status_name", type="string")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="账单不存在"
+     *     ),
+     *     @OA\Response(
+     *         response=403,
+     *         description="权限不足"
+     *     )
+     * )
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        try {
+            $user = $this->requireAuthUser($request);
+            if ($user instanceof \Illuminate\Http\JsonResponse) {
+                return $user;
+            }
+
+            $invoice = Invoice::findOrFail($id);
+
+            // 权限检查：只有教师可以更新自己创建的账单状态
+            if ($user->role === 'teacher' && $invoice->teacher_id !== $user->user_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '权限不足，只能更新自己创建的账单'
+                ], 403);
+            }
+
+            // 验证状态值
+            $newStatus = $request->input('status');
+            if (!in_array($newStatus, [0, 1, 2, 3, 4])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => '无效的状态值'
+                ], 400);
+            }
+
+            // 更新状态
+            $invoice->status = $newStatus;
+            $invoice->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => '状态更新成功',
+                'data' => [
+                    'id' => $invoice->id,
+                    'status' => $invoice->status,
+                    'status_name' => $invoice->status_name
+                ]
+            ]);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => '账单不存在'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('更新账单状态失败', [
+                'invoice_id' => $id,
+                'new_status' => $request->input('status'),
+                'user_id' => $user->user_id ?? null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => '更新状态失败'
+            ], 500);
         }
     }
 }
