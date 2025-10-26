@@ -384,13 +384,9 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         try {
-            $user = $request->attributes->get('auth_user');
-
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => '未登录'
-                ], 401);
+            $user = $this->requireAuthUser($request);
+            if ($user instanceof \Illuminate\Http\JsonResponse) {
+                return $user;
             }
 
             return response()->json([
@@ -454,13 +450,9 @@ class AuthController extends Controller
     public function refresh(Request $request)
     {
         try {
-            $user = $request->attributes->get('auth_user');
-
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => '未登录'
-                ], 401);
+            $user = $this->requireAuthUser($request);
+            if ($user instanceof \Illuminate\Http\JsonResponse) {
+                return $user;
             }
 
             // 生成新令牌

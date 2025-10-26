@@ -48,7 +48,10 @@ class DashboardController extends Controller
     public function getStats(Request $request)
     {
         try {
-            $user = $request->attributes->get('auth_user');
+            $user = $this->requireAuthUser($request);
+            if ($user instanceof \Illuminate\Http\JsonResponse) {
+                return $user;
+            }
 
             // 获取教师数量（从 admin_users 表）
             $teachersCount = AdminUser::count();

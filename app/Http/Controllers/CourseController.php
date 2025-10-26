@@ -143,7 +143,10 @@ class CourseController extends Controller
                 ], 422);
             }
 
-            $user = $request->attributes->get('auth_user');
+            $user = $this->requireAuthUser($request);
+            if ($user instanceof \Illuminate\Http\JsonResponse) {
+                return $user;
+            }
 
             // 检查教师是否在 admin_users 表中存在
             $teacher = AdminUser::find($user->user_id);
@@ -232,7 +235,10 @@ class CourseController extends Controller
                 ], 422);
             }
 
-            $user = $request->attributes->get('auth_user');
+            $user = $this->requireAuthUser($request);
+            if ($user instanceof \Illuminate\Http\JsonResponse) {
+                return $user;
+            }
 
             $course = Course::where('id', $id)
                 ->where('teacher_id', $user->user_id)

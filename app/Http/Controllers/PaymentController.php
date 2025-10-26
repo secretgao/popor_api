@@ -99,7 +99,11 @@ class PaymentController extends Controller
     public function processPayment(Request $request)
     {
         $requestData = $request->all();
-        $userId = $request->attributes->get('auth_user')->user_id ?? null;
+        
+        $userId = $this->requireAuthUserId($request);
+        if ($userId instanceof \Illuminate\Http\JsonResponse) {
+            return $userId;
+        }
         
         Log::channel('omise')->info('processPayment-原始参数', [
             'raw_data' => $requestData
@@ -137,7 +141,7 @@ class PaymentController extends Controller
         $paymentData = $requestData;
         $paymentData['metadata'] = [
             'invoice_id' => $requestData['invoice_id'] ?? null,
-            'user_id' => $request->attributes->get('auth_user')->user_id ?? null,
+            'user_id' => $userId,
             'timestamp' => now()->toISOString(),
         ];
 
@@ -192,7 +196,7 @@ class PaymentController extends Controller
         // 记录支付失败日志
         Log::channel('omise')->error('支付失败', [
             'error' => $result['error'],
-            'user_id' => $request->attributes->get('auth_user')->user_id ?? null,
+            'user_id' => $userId,
             'invoice_id' => $requestData['invoice_id'] ?? null,
         ]);
 

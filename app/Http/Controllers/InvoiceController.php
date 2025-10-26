@@ -64,7 +64,11 @@ class InvoiceController extends Controller
             $perPage = $request->get('per_page', 10);
             $status = $request->get('status');
             $studentId = $request->get('student_id');
-            $user = $request->attributes->get('auth_user');
+            
+            $user = $this->requireAuthUser($request);
+            if ($user instanceof \Illuminate\Http\JsonResponse) {
+                return $user;
+            }
 
             $query = Invoice::with(['student', 'course', 'teacher'])
                 ->select([
@@ -221,8 +225,10 @@ class InvoiceController extends Controller
                 ], 422);
             }
 
-            $user = $request->attributes->get('auth_user');
-
+            $user = $this->requireAuthUser($request);
+            if ($user instanceof \Illuminate\Http\JsonResponse) {
+                return $user;
+            }
 
             $course = Course::where('id', $request->course_id)
                 ->first();
@@ -328,7 +334,10 @@ class InvoiceController extends Controller
     public function show($id)
     {
         try {
-            $user = $request->attributes->get('auth_user');
+            $user = $this->requireAuthUser($request);
+            if ($user instanceof \Illuminate\Http\JsonResponse) {
+                return $user;
+            }
 
             $query = Invoice::with(['student', 'course', 'teacher'])
                 ->where('id', $id);
@@ -434,7 +443,10 @@ class InvoiceController extends Controller
                 ], 422);
             }
 
-            $user = $request->attributes->get('auth_user');
+            $user = $this->requireAuthUser($request);
+            if ($user instanceof \Illuminate\Http\JsonResponse) {
+                return $user;
+            }
 
             // 验证账单权限
             $invoice = Invoice::where('id', $id)
