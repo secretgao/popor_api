@@ -410,7 +410,6 @@ class StudentController extends Controller
                     'fee' => $course->fee,
                     'teacher_name' => $course->teacher ? $course->teacher->name : '未知教师',
                     'created_at' => $courseStudent->formatted_created_at,
-                    'status' => $courseStudent->status ?? 1
                 ];
             });
 
