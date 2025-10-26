@@ -233,16 +233,15 @@ class InvoiceController extends Controller
                 ], 403);
             }
 
-            // 检查是否已存在相同的账单
+            // 检查是否已存在相同的账单（基于数据库唯一约束：student_id + course_id）
             $existingInvoice = Invoice::where('student_id', $request->student_id)
                 ->where('course_id', $request->course_id)
-                ->where('year_month', $request->year_month)
                 ->first();
 
             if ($existingInvoice) {
                 return response()->json([
                     'success' => false,
-                    'message' => '该学生在此课程和年月的账单已存在，请选择其他年月或检查现有账单'
+                    'message' => '该学生在此课程的账单已存在，每个学生每个课程只能有一个账单'
                 ], 409);
             }
 
