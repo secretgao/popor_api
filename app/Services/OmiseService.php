@@ -331,12 +331,29 @@ class OmiseService
      * 验证 Webhook 签名
      *
      * @param string $payload 请求体
-     * @param string $signature 签名
+     * @param string|null $signature 签名
      * @return bool
      */
-    public function verifyWebhook(string $payload, string $signature)
+    public function verifyWebhook(string $payload, ?string $signature)
     {
-        $expectedSignature = hash_hmac('sha256', $payload, config('omise.webhook.secret'));
+        if (empty($signature)) {
+            Log::channel('omise')->warning('Webhook 签名为空', [
+                'signature' => $signature,
+                'payload_length' => strlen($payload)
+            ]);
+            return false;
+        }
+        
+        $webhookSecret = config('omise.webhook.secret');
+        $expectedSignature = hash_hmac('sha256', $payload, $webhookSecret);
+        
+        Log::channel('omise')->info('Webhook 签名验证详情', [
+            'received_signature' => $signature,
+            'expected_signature' => $expectedSignature,
+            'webhook_secret_length' => strlen($webhookSecret),
+            'payload_length' => strlen($payload)
+        ]);
+        
         return hash_equals($expectedSignature, $signature);
     }
 

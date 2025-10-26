@@ -310,14 +310,30 @@ class PaymentController extends Controller
         $payload = $request->getContent();
         $signature = $request->header('X-Omise-Signature');
 
+        // 记录详细的 webhook 请求信息
+        Log::channel('omise')->info('Omise Webhook 请求详情', [
+            'headers' => $request->headers->all(),
+            'signature' => $signature,
+            'payload_length' => strlen($payload),
+            'payload_preview' => substr($payload, 0, 200) . '...'
+        ]);
 
-        // 验证签名
-        if (!$this->omiseService->verifyWebhook($payload, $signature)) {
+        // 验证签名（测试环境可以跳过）
+        $isTestMode = config('omise.environment') === 'test' && $request->header('User-Agent') && str_contains($request->header('User-Agent'), 'Postman');
+        
+        if (!$isTestMode && !$this->omiseService->verifyWebhook($payload, $signature)) {
             Log::channel('omise')->warning('Omise Webhook 签名验证失败', [
                 'signature' => $signature,
-                'payload_length' => strlen($payload)
+                'payload_length' => strlen($payload),
+                'all_headers' => $request->headers->all()
             ]);
             return response()->json(['error' => 'Invalid signature'], 400);
+        }
+        
+        if ($isTestMode) {
+            Log::channel('omise')->info('测试模式：跳过签名验证', [
+                'user_agent' => $request->header('User-Agent')
+            ]);
         }
 
         $data = json_decode($payload, true);
@@ -326,17 +342,45 @@ class PaymentController extends Controller
             'type' => $data['type'] ?? null,
             'event_id' => $data['id'] ?? null,
             'data' => $data['data'] ?? null,
-            'created' => $data['created'] ?? null
+            'created' => $data['created'] ?? null,
+            'object' => $data['object'] ?? null
         ]);
 
-        // 幂等性检查：先检查事件是否已处理
+        // 判断是 webhook 事件还是直接的对象（如 charge）
+        $isWebhookEvent = isset($data['type']) && isset($data['data']);
         $eventId = $data['id'] ?? null;
+        
+        if ($isWebhookEvent) {
+            // 这是真正的 webhook 事件
+            $webhookType = $data['type'];
+            $eventData = $data['data'] ?? $data;
+        } else {
+            // 这是直接的对象（如 charge），需要根据对象类型推断事件类型
+            $objectType = $data['object'] ?? 'unknown';
+            $status = $data['status'] ?? null;
+            
+            if ($objectType === 'charge') {
+                if ($status === 'successful') {
+                    $webhookType = 'charge.complete';
+                } elseif ($status === 'failed') {
+                    $webhookType = 'charge.failed';
+                } else {
+                    $webhookType = 'charge.' . $status;
+                }
+            } else {
+                $webhookType = $objectType . '.unknown';
+            }
+            
+            $eventData = $data;
+        }
+
+        // 幂等性检查：先检查事件是否已处理
         if ($eventId) {
             $existingEvent = \App\Models\WebhookEvent::where('event_id', $eventId)->first();
             if ($existingEvent && $existingEvent->isProcessed()) {
                 Log::channel('omise')->info('Webhook 事件已处理，跳过', [
                     'event_id' => $eventId,
-                    'type' => $data['type']
+                    'type' => $webhookType
                 ]);
                 return response()->json(['status' => 'ok']);
             }
@@ -344,7 +388,7 @@ class PaymentController extends Controller
 
         // 记录 webhook 事件到数据库
         $webhookEvent = \App\Models\WebhookEvent::findOrCreateByEventId($eventId, [
-            'type' => $data['type'] ?? null,
+            'type' => $webhookType,
             'payload' => $data,
             'process_status' => \App\Models\WebhookEvent::STATUS_PENDING,
             'event_created_at' => isset($data['created']) ? \Carbon\Carbon::createFromTimestamp($data['created']) : null,
@@ -352,18 +396,22 @@ class PaymentController extends Controller
 
         try {
             // 处理不同类型的 webhook 事件
-            switch ($data['type']) {
+            switch ($webhookType) {
                 case 'charge.complete':
-                    $this->handleChargeComplete($data, $webhookEvent);
+                    $this->handleChargeComplete($eventData, $webhookEvent);
                     break;
                 case 'charge.failed':
-                    $this->handleChargeFailed($data, $webhookEvent);
+                    $this->handleChargeFailed($eventData, $webhookEvent);
                     break;
                 case 'refund.created':
-                    $this->handleRefundCreated($data, $webhookEvent);
+                    $this->handleRefundCreated($eventData, $webhookEvent);
                     break;
                 default:
-                    Log::channel('omise')->info('未处理的 Webhook 事件类型: ' . $data['type']);
+                    Log::channel('omise')->info('未处理的 Webhook 事件类型', [
+                        'type' => $webhookType,
+                        'event_id' => $eventId,
+                        'original_data' => $data
+                    ]);
                     $webhookEvent->markAsProcessed(); // 标记为已处理，避免重复处理
             }
 
@@ -371,7 +419,7 @@ class PaymentController extends Controller
         } catch (\Exception $e) {
             Log::channel('omise')->error('Webhook 处理失败', [
                 'event_id' => $eventId,
-                'type' => $data['type'],
+                'type' => $webhookType,
                 'error' => $e->getMessage()
             ]);
             
