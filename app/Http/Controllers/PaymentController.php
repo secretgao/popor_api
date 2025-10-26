@@ -310,6 +310,7 @@ class PaymentController extends Controller
         $payload = $request->getContent();
         $signature = $request->header('X-Omise-Signature');
 
+
         // 验证签名
         if (!$this->omiseService->verifyWebhook($payload, $signature)) {
             Log::channel('omise')->warning('Omise Webhook 签名验证失败', [
@@ -396,13 +397,16 @@ class PaymentController extends Controller
 
         // 更新发票状态（如果有 invoice_id）
         if (isset($metadata['invoice_id'])) {
-            $this->updateInvoiceStatus($metadata['invoice_id'], 'paid', [
+            $this->updateInvoiceStatus($metadata['invoice_id'], Invoice::STATUS_PAID, [
                 'charge_id' => $chargeId,
                 'transaction_id' => $chargeData['transaction'] ?? null,
                 'amount' => $chargeData['amount'] / 100, // 转换回元
                 'currency' => $chargeData['currency'],
                 'paid_at' => now(),
             ]);
+
+            // 支付成功后，将学生和课程关联写入 course_student 表
+            $this->enrollStudentToCourse($metadata['invoice_id']);
         }
 
         $webhookEvent->markAsProcessed();
@@ -425,7 +429,7 @@ class PaymentController extends Controller
 
         // 更新发票状态为失败（如果有 invoice_id）
         if (isset($metadata['invoice_id'])) {
-            $this->updateInvoiceStatus($metadata['invoice_id'], 'failed', [
+            $this->updateInvoiceStatus($metadata['invoice_id'], Invoice::STATUS_FAILED, [
                 'charge_id' => $chargeId,
                 'failure_code' => $chargeData['failure_code'] ?? null,
                 'failure_message' => $chargeData['failure_message'] ?? null,
@@ -452,7 +456,7 @@ class PaymentController extends Controller
 
         // 更新发票状态为已退款（如果有 invoice_id）
         if (isset($metadata['invoice_id'])) {
-            $this->updateInvoiceStatus($metadata['invoice_id'], 'refunded', [
+            $this->updateInvoiceStatus($metadata['invoice_id'], Invoice::STATUS_REFUNDED, [
                 'refund_id' => $refundData['id'],
                 'charge_id' => $chargeId,
                 'refund_amount' => $refundData['amount'] / 100, // 转换回元
@@ -470,29 +474,22 @@ class PaymentController extends Controller
     private function updateInvoiceStatus($invoiceId, $status, $additionalData = [])
     {
         try {
-            // 将字符串状态转换为数字状态
-            $statusMap = [
-                'paid' => 2,      // 支付成功
-                'failed' => 3,    // 支付失败
-                'refunded' => 4,  // 已退款（如果需要的话）
-            ];
-            
-            $numericStatus = $statusMap[$status] ?? 0; // 默认为待支付
-            
-            // 这里需要根据您的发票模型来更新状态
-            // 假设您有一个 Invoice 模型
+            // 现在直接使用数字状态常量
             $invoice = \App\Models\Invoice::find($invoiceId);
             if ($invoice) {
-                $invoice->update([
-                    'status' => $numericStatus,
-                    'payment_data' => array_merge($invoice->payment_data ?? [], $additionalData),
+                $updateData = [
+                    'status' => $status,
                     'updated_at' => now(),
-                ]);
+                ];
+                
+                // 合并额外数据
+                $updateData = array_merge($updateData, $additionalData);
+                
+                $invoice->update($updateData);
 
                 Log::channel('omise')->info('发票状态已更新', [
                     'invoice_id' => $invoiceId,
                     'status' => $status,
-                    'numeric_status' => $numericStatus,
                     'additional_data' => $additionalData
                 ]);
             } else {
@@ -508,6 +505,60 @@ class PaymentController extends Controller
                 'error' => $e->getMessage()
             ]);
             throw $e;
+        }
+    }
+
+    /**
+     * 支付成功后，将学生和课程关联写入 course_student 表
+     */
+    private function enrollStudentToCourse($invoiceId)
+    {
+        try {
+            $invoice = \App\Models\Invoice::find($invoiceId);
+            if (!$invoice) {
+                Log::channel('omise')->warning('未找到发票，无法关联学生课程', [
+                    'invoice_id' => $invoiceId
+                ]);
+                return;
+            }
+
+            $studentId = $invoice->student_id;
+            $courseId = $invoice->course_id;
+
+            // 检查是否已经存在关联
+            $existingEnrollment = \DB::table('course_student')
+                ->where('student_id', $studentId)
+                ->where('course_id', $courseId)
+                ->first();
+
+            if ($existingEnrollment) {
+                Log::channel('omise')->info('学生课程关联已存在', [
+                    'student_id' => $studentId,
+                    'course_id' => $courseId,
+                    'invoice_id' => $invoiceId
+                ]);
+                return;
+            }
+
+            // 插入新的学生课程关联
+            \DB::table('course_student')->insert([
+                'student_id' => $studentId,
+                'course_id' => $courseId,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            Log::channel('omise')->info('学生课程关联创建成功', [
+                'student_id' => $studentId,
+                'course_id' => $courseId,
+                'invoice_id' => $invoiceId
+            ]);
+
+        } catch (\Exception $e) {
+            Log::channel('omise')->error('创建学生课程关联失败', [
+                'invoice_id' => $invoiceId,
+                'error' => $e->getMessage()
+            ]);
         }
     }
 }

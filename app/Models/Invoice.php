@@ -39,16 +39,20 @@ class Invoice extends Model
         'updated_at' => 'datetime:Y-m-d H:i:s'
     ];
 
-    const STATUS_0 = '待支付';
-    const STATUS_1 = '支付中';
-    const STATUS_2 = '支付成功';
-    const STATUS_3 = '支付失败';
+    // 数字状态常量
+    const STATUS_PENDING = 0;      // 待支付
+    const STATUS_PROCESSING = 1;   // 支付中
+    const STATUS_PAID = 2;         // 支付成功
+    const STATUS_FAILED = 3;       // 支付失败
+    const STATUS_REFUNDED = 4;     // 已退款
+
 
     public static  $status_type = [
-            self::STATUS_0=>'待支付',
-            self::STATUS_1=>'支付中',
-            self::STATUS_2=>'支付成功',
-            self::STATUS_3=>'支付失败',
+            self::STATUS_PENDING=>'待支付',
+            self::STATUS_PROCESSING=>'支付中',
+            self::STATUS_PAID=>'支付成功',
+            self::STATUS_FAILED=>'支付失败',
+            self::STATUS_REFUNDED=>'已退款',
     ];
     /**
      * 时间格式
