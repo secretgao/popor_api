@@ -55,72 +55,6 @@ class PaymentController extends Controller
         ]);
     }
 
-    /**
-     * @OA\Post(
-     *     path="/api/payment/create-token",
-     *     summary="创建支付令牌",
-     *     description="创建 Omise 支付令牌",
-     *     tags={"Payment"},
-     *     @OA\RequestBody(
-     *         required=true,
-     *         @OA\JsonContent(
-     *             @OA\Property(property="name", type="string", example="John Doe"),
-     *             @OA\Property(property="number", type="string", example="4242424242424242"),
-     *             @OA\Property(property="expiration_month", type="string", example="12"),
-     *             @OA\Property(property="expiration_year", type="string", example="2025"),
-     *             @OA\Property(property="security_code", type="string", example="123")
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=200,
-     *         description="成功",
-     *         @OA\JsonContent(
-     *             @OA\Property(property="success", type="boolean", example=true),
-     *             @OA\Property(property="data", type="object",
-     *                 @OA\Property(property="token_id", type="string", example="tokn_test_xxx")
-     *             )
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=400,
-     *         description="请求错误"
-     *     )
-     * )
-     */
-    public function createToken(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:50',
-            'number' => 'required|string|min:13|max:19',
-            'expiration_month' => 'required|string|size:2',
-            'expiration_year' => 'required|string|size:2',
-            'security_code' => 'required|string|min:3|max:4',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => '验证失败',
-                'errors' => $validator->errors()
-            ], 400);
-        }
-
-        $result = $this->omiseService->createToken($request->all());
-
-        if ($result['success']) {
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'token_id' => $result['token_id']
-                ]
-            ]);
-        }
-
-        return response()->json([
-            'success' => false,
-            'message' => $result['error']
-        ], 400);
-    }
 
     /**
      * @OA\Post(
@@ -163,6 +97,9 @@ class PaymentController extends Controller
      */
     public function processPayment(Request $request)
     {
+        Log::channel('omise')->info('processPayment-参数', [
+            'data' => $request->all()
+        ]);
         $validator = Validator::make($request->all(), [
             'token' => 'required|string',
             'amount' => 'required|numeric|min:1',

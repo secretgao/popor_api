@@ -22,52 +22,6 @@ class OmiseService
     }
 
     
-    /**
-     * 创建支付令牌
-     *
-     * @param array $cardData 卡片数据
-     * @return array
-     */
-    public function createToken(array $cardData)
-    {
-        try {
-            $token = \OmiseToken::create([
-                'card' => [
-                    'name' => $cardData['name'],
-                    'number' => $cardData['number'],
-                    'expiration_month' => $cardData['expiration_month'],
-                    'expiration_year' => $cardData['expiration_year'],
-                    'security_code' => $cardData['security_code'],
-                ]
-            ]);
-
-            $this->logger->info('Omise 令牌创建成功', [
-                'token_id' => $token['id'],
-                'card_brand' => $token['card']['brand'] ?? null,
-                'card_last_digits' => $token['card']['last_digits'] ?? null,
-            ]);
-
-            return [
-                'success' => true,
-                'token' => $token,
-                'token_id' => $token['id']
-            ];
-        } catch (\Exception $e) {
-            $this->logger->error('Omise 创建令牌失败', [
-                'error' => $e->getMessage(),
-                'card_data' => [
-                    'name' => $cardData['name'] ?? null,
-                    'number' => substr($cardData['number'] ?? '', 0, 4) . '****' . substr($cardData['number'] ?? '', -4),
-                    'expiration_month' => $cardData['expiration_month'] ?? null,
-                    'expiration_year' => $cardData['expiration_year'] ?? null,
-                ]
-            ]);
-            return [
-                'success' => false,
-                'error' => $e->getMessage()
-            ];
-        }
-    }
 
     /**
      * 处理支付

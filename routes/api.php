@@ -27,9 +27,6 @@ Route::prefix('payment')->group(function () {
     // 获取支付配置
     Route::get('/config', [App\Http\Controllers\PaymentController::class, 'getConfig']);
     
-    // 创建支付令牌
-    Route::post('/create-token', [App\Http\Controllers\PaymentController::class, 'createToken']);
-    
     // Webhook 处理
     Route::post('/webhook', [App\Http\Controllers\PaymentController::class, 'webhook']);
 });
