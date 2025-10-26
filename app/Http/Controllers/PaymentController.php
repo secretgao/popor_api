@@ -133,7 +133,7 @@ class PaymentController extends Controller
         if (!$invoice) {
             return response()->json(['success' => false, 'message' => '发票不存在'], 404);
         }
-        if ((int)$invoice->status !== 0) {
+        if ((int)$invoice->status !== Invoice::STATUS_PENDING) {
             return response()->json(['success' => false, 'message' => '发票已在支付流程中或已完成，拒绝重复支付'], 409);
         }
 
