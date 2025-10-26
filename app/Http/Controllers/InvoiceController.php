@@ -209,7 +209,8 @@ class InvoiceController extends Controller
                 'student_id' => 'required|integer|exists:users,id',
                 'course_id' => 'required|integer|exists:courses,id',
                 'amount' => 'required|numeric|min:0',
-                'year_month' => 'required|string|size:6'
+                'year_month' => 'required|string|size:6',
+                'description' => 'nullable|string|max:500'
             ]);
 
             if ($validator->fails()) {
@@ -253,6 +254,7 @@ class InvoiceController extends Controller
                 'amount' => $request->amount,
                 'year_month' => $request->year_month,
                 'status' => 0, // 待支付
+                'description' => $request->description,
                 'currency' => 'JPY'
             ]);
 
