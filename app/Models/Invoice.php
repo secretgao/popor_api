@@ -36,19 +36,18 @@ class Invoice extends Model
     ];
 
     // 数字状态常量
-    const STATUS_PENDING = 0;      // 待支付
-    const STATUS_PROCESSING = 1;   // 支付中
-    const STATUS_PAID = 2;         // 支付成功
-    const STATUS_FAILED = 3;       // 支付失败
-    const STATUS_REFUNDED = 4;     // 已退款
-
+    const STATUS_DRAFT = 0;        // 待发送
+    const STATUS_PENDING = 1;      // 待支付
+    const STATUS_PROCESSING = 2;   // 支付中
+    const STATUS_PAID = 3;         // 支付成功
+    const STATUS_FAILED = 4;       // 支付失败
 
     public static  $status_type = [
+            self::STATUS_DRAFT=>'待发送',
             self::STATUS_PENDING=>'待支付',
             self::STATUS_PROCESSING=>'支付中',
             self::STATUS_PAID=>'支付成功',
             self::STATUS_FAILED=>'支付失败',
-            self::STATUS_REFUNDED=>'已退款',
     ];
     /**
      * 时间格式
@@ -111,6 +110,6 @@ class Invoice extends Model
      */
     public function getStatusNameAttribute(): string
     {
-        return self::$status_type[$this->status] ?? '待支付';
+        return self::$status_type[$this->status] ?? '待发送';
     }
 }

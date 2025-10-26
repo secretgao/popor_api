@@ -153,7 +153,7 @@ class PaymentController extends Controller
         if ($result['success']) {
             // 更新账单支付信息
             Invoice::query()->where('id', $requestData['invoice_id'])->update([
-                'status' => 1, // 支付中
+                'status' =>Invoice::STATUS_PROCESSING, // 支付中
                 'omise_charge_id' => $result['charge_id'],
                 'payment_success' => true,
                 'payment_status' => $result['status'],
@@ -186,7 +186,7 @@ class PaymentController extends Controller
 
         // 更新账单支付失败信息
         Invoice::query()->where('id', $requestData['invoice_id'])->update([
-            'status' => 3, // 支付失败
+            'status' => Invoice::STATUS_FAILED, // 支付失败
             'payment_success' => false,
             'payment_status' => 'failed',
             'payment_error_message' => $result['error'],
