@@ -307,7 +307,6 @@ class PaymentController extends Controller
      */
     public function webhook(Request $request)
     {
-        
         $signature = $request->header('X-Omise-Signature');
         $payload = $request->getContent();
         Log::channel('omise')->info('Webhook debug', [
@@ -320,23 +319,8 @@ class PaymentController extends Controller
             'payload_len' => strlen($payload),
         ]);
 
-        // 记录详细的 webhook 请求信息
-        Log::channel('omise')->info('Omise Webhook 请求详情', [
-            'headers' => $request->headers->all(),
-            'signature' => $signature,
-            'payload_length' => strlen($payload),
-            'payload_preview' => substr($payload, 0, 200) . '...'
-        ]);
-
         // 验证签名（测试环境可以跳过）
         $isTestMode = config('omise.environment') === 'test' ;
-        
-        Log::channel('omise')->info('Webhook 测试模式检查', [
-            'environment' => config('omise.environment'),
-            'is_test_mode' => $isTestMode,
-            'signature' => $signature
-        ]);
-
         if (!$isTestMode && !$this->omiseService->verifyWebhook($payload, $signature)) {
             Log::channel('omise')->warning('Omise Webhook 签名验证失败', [
                 'signature' => $signature,
@@ -345,9 +329,6 @@ class PaymentController extends Controller
             ]);
             return response()->json(['error' => 'Invalid signature'], 400);
         }
-        
-
-
         $data = json_decode($payload, true);
         
         Log::channel('omise')->info('Omise Webhook 接收', [
@@ -367,10 +348,12 @@ class PaymentController extends Controller
             $webhookType = $data['type'];
             $eventData = $data['data'] ?? $data;
         } else {
+
             // 这是直接的对象（如 charge），需要根据对象类型推断事件类型
-            $objectType = $data['object'] ?? 'unknown';
-            $status = $data['status'] ?? null;
-            
+            $objectType = $data['data']['object'] ?? 'unknown';
+
+            $status = $data['data']['status'] ?? null;
+
             if ($objectType === 'charge') {
                 if ($status === 'successful') {
                     $webhookType = 'charge.complete';
@@ -469,6 +452,7 @@ class PaymentController extends Controller
         ]);
 
         // 更新发票状态（如果有 invoice_id）
+
         if (isset($metadata['invoice_id'])) {
             $this->updateInvoiceStatus($metadata['invoice_id'], Invoice::STATUS_PAID, [
                 'omise_charge_id' => $chargeId,
