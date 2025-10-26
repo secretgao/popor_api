@@ -254,7 +254,7 @@ class InvoiceController extends Controller
                 'amount' => $request->amount,
                 'year_month' => $request->year_month,
                 'status' => 0, // 待支付
-                'currency' => 'THB'
+                'currency' => 'JPY'
             ]);
 
             // 加载关联数据
