@@ -2,10 +2,6 @@
 
 namespace App\Services;
 
-use Omise\Omise;
-use Omise\Charge;
-use Omise\Token;
-use Omise\Customer;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Config;
 
@@ -15,18 +11,17 @@ class OmiseService
     protected $secretKey;
     protected $environment;
     protected $logger;
-
+    
     public function __construct()
     {
         $this->publicKey = config('omise.public_key');
         $this->secretKey = config('omise.secret_key');
         $this->environment = config('omise.environment');
         $this->logger = Log::channel('omise');
-        
-        // 设置 Omise 密钥
-        Omise::setSecretKey($this->secretKey);
+       
     }
 
+    
     /**
      * 创建支付令牌
      *
@@ -36,7 +31,7 @@ class OmiseService
     public function createToken(array $cardData)
     {
         try {
-            $token = Token::create([
+            $token = \OmiseToken::create([
                 'card' => [
                     'name' => $cardData['name'],
                     'number' => $cardData['number'],
@@ -96,7 +91,7 @@ class OmiseService
                 $chargeParams['metadata'] = $paymentData['metadata'];
             }
 
-            $charge = Charge::create($chargeParams);
+            $charge = \OmiseCharge::create($chargeParams);
 
             $this->logger->info('Omise 支付处理成功', [
                 'charge_id' => $charge['id'],
@@ -144,7 +139,7 @@ class OmiseService
     public function createCustomer(array $customerData)
     {
         try {
-            $customer = Customer::create([
+            $customer = \OmiseCustomer::create([
                 'email' => $customerData['email'],
                 'description' => $customerData['description'] ?? '教育系统客户',
                 'metadata' => $customerData['metadata'] ?? []
@@ -179,7 +174,7 @@ class OmiseService
     public function getCharge(string $chargeId)
     {
         try {
-            $charge = Charge::retrieve($chargeId);
+            $charge = \OmiseCharge::retrieve($chargeId);
             
             return [
                 'success' => true,
@@ -207,7 +202,7 @@ class OmiseService
     public function refund(string $chargeId, int $amount = null)
     {
         try {
-            $charge = Charge::retrieve($chargeId);
+            $charge = \OmiseCharge::retrieve($chargeId);
             $refund = $charge->refunds()->create([
                 'amount' => $amount ?? $charge['amount']
             ]);
