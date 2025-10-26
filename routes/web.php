@@ -1,10 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\HomeController;
 
-Route::get('/', function () {
-    return response()->json([
-        'message' => 'Hello World'
-    ]);
-   // return view('welcome');
-});
+ 
+
+Route::get('/', [HomeController::class, 'index']);
