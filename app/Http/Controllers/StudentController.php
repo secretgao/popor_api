@@ -341,7 +341,6 @@ class StudentController extends Controller
                 // 使用模型访问器获取格式化时间
                 $invoice->created_at = $invoice->formatted_created_at;
                 $invoice->updated_at = $invoice->formatted_updated_at;
-                $invoice->sent_at = $invoice->formatted_sent_at;
                 $invoice->paid_at = $invoice->formatted_paid_at;
 
                 return $invoice;

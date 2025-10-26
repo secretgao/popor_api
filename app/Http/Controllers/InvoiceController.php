@@ -75,7 +75,6 @@ class InvoiceController extends Controller
                     'amount',
                     'status',
                     'year_month',
-                    'sent_at',
                     'paid_at',
                     'payment_method',
                     'currency',
@@ -145,7 +144,6 @@ class InvoiceController extends Controller
                 // 直接格式化时间字段，避免访问器问题
                 $invoiceArray['created_at'] = $invoice->created_at ? $invoice->created_at->format('Y-m-d H:i:s') : null;
                 $invoiceArray['updated_at'] = $invoice->updated_at ? $invoice->updated_at->format('Y-m-d H:i:s') : null;
-                $invoiceArray['sent_at'] = $invoice->sent_at ? $invoice->sent_at->format('Y-m-d H:i:s') : null;
                 $invoiceArray['paid_at'] = $invoice->paid_at ? $invoice->paid_at->format('Y-m-d H:i:s') : null;
 
                 return $invoiceArray;

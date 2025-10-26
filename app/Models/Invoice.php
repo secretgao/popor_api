@@ -17,7 +17,6 @@ class Invoice extends Model
         'amount',
         'year_month',
         'status',
-        'sent_at',
         'paid_at',
         'payment_method',
         'currency',
@@ -32,7 +31,6 @@ class Invoice extends Model
     ];
 
     protected $casts = [
-        'sent_at' => 'datetime:Y-m-d H:i:s',
         'paid_at' => 'datetime:Y-m-d H:i:s',
         'amount' => 'decimal:2',
         'created_at' => 'datetime:Y-m-d H:i:s',
@@ -100,14 +98,6 @@ class Invoice extends Model
     public function getFormattedUpdatedAtAttribute()
     {
         return $this->updated_at ? $this->updated_at->format('Y-m-d H:i:s') : null;
-    }
-
-    /**
-     * 获取格式化的发送时间
-     */
-    public function getFormattedSentAtAttribute()
-    {
-        return $this->sent_at ? $this->sent_at->format('Y-m-d H:i:s') : null;
     }
 
     /**
