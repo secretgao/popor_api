@@ -52,7 +52,7 @@ return [
     |
     */
 
-    'url' => env('APP_URL', 'http://localhost'),
+    'url' => env('APP_URL', 'https://poper-ops-interview-04.herokuapp.com'),
 
     /*
     |--------------------------------------------------------------------------

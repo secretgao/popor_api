@@ -85,7 +85,7 @@ return [
             ],
         ],
         'constants' => [
-            'L5_SWAGGER_CONST_HOST' => env('L5_SWAGGER_CONST_HOST', 'http://api.localhost'),
+            'L5_SWAGGER_CONST_HOST' => env('L5_SWAGGER_CONST_HOST', 'https://poper-ops-interview-04.herokuapp.com'),
         ],
     ],
 ];
