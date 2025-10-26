@@ -242,7 +242,7 @@ class InvoiceController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => '该学生在此课程的账单已存在，每个学生每个课程只能有一个账单'
-                ], 409);
+                ], 403);
             }
 
             // 创建账单
