@@ -51,7 +51,6 @@ class InvoiceControllerTest extends TestCase
                         'amount',
                         'year_month',
                         'status',
-                        'sent_at',
                         'paid_at',
                         'student' => [
                             'id',
@@ -90,7 +89,8 @@ class InvoiceControllerTest extends TestCase
             'student_id' => $student->id,
             'course_id' => $course->id,
             'amount' => 500.00,
-            'year_month' => '2024-01'
+            'year_month' => '2024-01',
+            'description' => '课程费用 - 测试课程'
         ];
 
         $response = $this->actingAsUser($teacher)
@@ -106,7 +106,7 @@ class InvoiceControllerTest extends TestCase
             'teacher_id' => $teacher->id,
             'amount' => 500.00,
             'year_month' => '2024-01',
-            'status' => 'pending'
+            'status' => 0 // 待支付'
         ]);
     }
 
@@ -390,14 +390,14 @@ class InvoiceControllerTest extends TestCase
             'student_id' => $student->id,
             'course_id' => $course->id,
             'teacher_id' => $teacher->id,
-            'status' => 'pending'
+            'status' => 0 // 待支付'
         ]);
 
         $this->createInvoice([
             'student_id' => $student->id,
             'course_id' => $course->id,
             'teacher_id' => $teacher->id,
-            'status' => 'paid'
+            'status' => 2 // 支付成功'
         ]);
 
         $response = $this->actingAsUser($teacher)
@@ -443,5 +443,56 @@ class InvoiceControllerTest extends TestCase
             'id' => $invoice->id,
             'amount' => 750.00
         ]);
+    }
+
+    /** @test */
+    public function test_invoice_can_include_description()
+    {
+        $teacher = $this->createTeacher();
+        $student = $this->createStudent();
+        $course = $this->createCourse(['teacher_id' => $teacher->id]);
+
+        $invoiceData = [
+            'student_id' => $student->id,
+            'course_id' => $course->id,
+            'amount' => 500.00,
+            'year_month' => '2024-01',
+            'description' => '这是一个测试账单描述'
+        ];
+
+        $response = $this->actingAsUser($teacher)
+            ->postJson('/api/invoices', $invoiceData);
+
+        $response->assertStatus(201);
+        $response->assertJson(['success' => true]);
+
+        // 验证 description 已保存
+        $this->assertDatabaseHas('invoices', [
+            'student_id' => $student->id,
+            'course_id' => $course->id,
+            'description' => '这是一个测试账单描述'
+        ]);
+    }
+
+    /** @test */
+    public function test_invoice_description_is_optional()
+    {
+        $teacher = $this->createTeacher();
+        $student = $this->createStudent();
+        $course = $this->createCourse(['teacher_id' => $teacher->id]);
+
+        $invoiceData = [
+            'student_id' => $student->id,
+            'course_id' => $course->id,
+            'amount' => 500.00,
+            'year_month' => '2024-01'
+            // 没有 description 字段
+        ];
+
+        $response = $this->actingAsUser($teacher)
+            ->postJson('/api/invoices', $invoiceData);
+
+        $response->assertStatus(201);
+        $response->assertJson(['success' => true]);
     }
 }

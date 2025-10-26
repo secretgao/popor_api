@@ -89,8 +89,8 @@ abstract class TestCase extends BaseTestCase
             'teacher_id' => $course->teacher_id,
             'amount' => $course->fee,
             'year_month' => $this->faker->date('Y-m'),
-            'status' => 'pending',
-            'sent_at' => null,
+            'status' => 0, // 待支付
+            'currency' => 'JPY',
             'paid_at' => null,
         ];
 

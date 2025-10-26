@@ -31,61 +31,27 @@ class PaymentControllerTest extends TestCase
     }
 
     /** @test */
-    public function test_can_create_payment_token()
+    public function test_payment_config_returns_correct_structure()
     {
-        $tokenData = [
-            'card' => [
-                'name' => 'Test User',
-                'number' => '4242424242424242',
-                'expiration_month' => 12,
-                'expiration_year' => 2025,
-                'security_code' => '123'
-            ]
-        ];
-
-        $response = $this->postJson('/api/payment/create-token', $tokenData);
+        $response = $this->getJson('/api/payment/config');
 
         $response->assertStatus(200);
         $response->assertJsonStructure([
             'success',
             'data' => [
-                'token_id',
-                'card' => [
-                    'last_digits',
-                    'brand',
-                    'expiration_month',
-                    'expiration_year'
-                ]
+                'omise_public_key',
+                'currency',
+                'supported_cards'
             ]
         ]);
-    }
 
-    /** @test */
-    public function test_create_token_requires_card_data()
-    {
-        $response = $this->postJson('/api/payment/create-token', []);
-
-        $response->assertStatus(422);
-        $response->assertJsonValidationErrors(['card']);
-    }
-
-    /** @test */
-    public function test_create_token_requires_valid_card_number()
-    {
-        $tokenData = [
-            'card' => [
-                'name' => 'Test User',
-                'number' => 'invalid_card_number',
-                'expiration_month' => 12,
-                'expiration_year' => 2025,
-                'security_code' => '123'
-            ]
-        ];
-
-        $response = $this->postJson('/api/payment/create-token', $tokenData);
-
-        $response->assertStatus(400);
-        $response->assertJson(['success' => false]);
+        $response->assertJson(['success' => true]);
+        
+        // 验证返回的数据
+        $data = $response->json('data');
+        $this->assertNotEmpty($data['omise_public_key']);
+        $this->assertEquals('JPY', $data['currency']);
+        $this->assertIsArray($data['supported_cards']);
     }
 
     /** @test */
@@ -98,13 +64,19 @@ class PaymentControllerTest extends TestCase
             'student_id' => $student->id,
             'course_id' => $course->id,
             'teacher_id' => $teacher->id,
-            'amount' => 500.00
+            'amount' => 500.00,
+            'status' => 0 // 待支付
         ]);
 
         $paymentData = [
-            'invoice_id' => $invoice->id,
-            'token_id' => 'tokn_test_123456789',
-            'amount' => 500.00
+            'token' => 'tokn_test_123456789',
+            'amount' => 500,
+            'currency' => 'JPY',
+            'description' => '课程费用 - 测试课程',
+            'metadata' => [
+                'invoice_id' => $invoice->id,
+                'user_id' => $student->id
+            ]
         ];
 
         $response = $this->actingAsUser($student)
@@ -113,12 +85,11 @@ class PaymentControllerTest extends TestCase
         $response->assertStatus(200);
         $response->assertJsonStructure([
             'success',
-            'data' => [
-                'charge_id',
-                'status',
-                'amount',
-                'currency'
-            ]
+            'charge_id',
+            'status',
+            'amount',
+            'currency',
+            'transaction_id'
         ]);
     }
 
@@ -126,9 +97,10 @@ class PaymentControllerTest extends TestCase
     public function test_payment_processing_requires_authentication()
     {
         $paymentData = [
-            'invoice_id' => 1,
-            'token_id' => 'tokn_test_123456789',
-            'amount' => 500.00
+            'token' => 'tokn_test_123456789',
+            'amount' => 500,
+            'currency' => 'JPY',
+            'description' => '测试支付'
         ];
 
         $response = $this->postJson('/api/payment/process', $paymentData);
@@ -197,7 +169,7 @@ class PaymentControllerTest extends TestCase
             'course_id' => $course->id,
             'teacher_id' => $teacher->id,
             'amount' => 500.00,
-            'status' => 'paid'
+            'status' => 2 // 支付成功
         ]);
 
         $refundData = [
@@ -231,7 +203,7 @@ class PaymentControllerTest extends TestCase
             'course_id' => $course->id,
             'teacher_id' => $teacher->id,
             'amount' => 500.00,
-            'status' => 'paid'
+            'status' => 2 // 支付成功
         ]);
 
         $refundData = [
@@ -259,7 +231,7 @@ class PaymentControllerTest extends TestCase
             'course_id' => $course->id,
             'teacher_id' => $teacher->id,
             'amount' => 500.00,
-            'status' => 'pending' // 未支付状态
+            'status' => 0 // 待支付 // 未支付状态
         ]);
 
         $refundData = [
@@ -279,38 +251,74 @@ class PaymentControllerTest extends TestCase
     public function test_payment_webhook_handles_success()
     {
         $webhookData = [
+            'object' => 'event',
+            'id' => 'evnt_test_123456789',
             'type' => 'charge.complete',
             'data' => [
+                'object' => 'charge',
                 'id' => 'chrg_test_123456789',
                 'status' => 'successful',
                 'amount' => 50000,
-                'currency' => 'thb'
+                'currency' => 'jpy',
+                'metadata' => [
+                    'invoice_id' => '1',
+                    'user_id' => '1'
+                ]
             ]
         ];
 
         $response = $this->postJson('/api/payment/webhook', $webhookData);
 
         $response->assertStatus(200);
-        $response->assertJson(['success' => true]);
+        $response->assertJson(['status' => 'ok']);
     }
 
     /** @test */
     public function test_payment_webhook_handles_failure()
     {
         $webhookData = [
+            'object' => 'event',
+            'id' => 'evnt_test_123456790',
             'type' => 'charge.failed',
             'data' => [
-                'id' => 'chrg_test_123456789',
+                'object' => 'charge',
+                'id' => 'chrg_test_123456790',
                 'status' => 'failed',
                 'amount' => 50000,
-                'currency' => 'thb'
+                'currency' => 'jpy',
+                'metadata' => [
+                    'invoice_id' => '1',
+                    'user_id' => '1'
+                ]
             ]
         ];
 
         $response = $this->postJson('/api/payment/webhook', $webhookData);
 
         $response->assertStatus(200);
-        $response->assertJson(['success' => true]);
+        $response->assertJson(['status' => 'ok']);
+    }
+
+    /** @test */
+    public function test_payment_webhook_handles_direct_charge()
+    {
+        // 测试直接 charge 对象（没有 event 包装）
+        $webhookData = [
+            'object' => 'charge',
+            'id' => 'chrg_test_123456791',
+            'status' => 'successful',
+            'amount' => 50000,
+            'currency' => 'jpy',
+            'metadata' => [
+                'invoice_id' => '1',
+                'user_id' => '1'
+            ]
+        ];
+
+        $response = $this->postJson('/api/payment/webhook', $webhookData);
+
+        $response->assertStatus(200);
+        $response->assertJson(['status' => 'ok']);
     }
 
     /** @test */
@@ -319,7 +327,7 @@ class PaymentControllerTest extends TestCase
         $response = $this->postJson('/api/payment/webhook', []);
 
         $response->assertStatus(400);
-        $response->assertJson(['success' => false]);
+        $response->assertJson(['error' => 'Invalid signature']);
     }
 
     /** @test */
@@ -359,7 +367,7 @@ class PaymentControllerTest extends TestCase
             'course_id' => $course->id,
             'teacher_id' => $teacher->id,
             'amount' => 500.00,
-            'status' => 'paid' // 已支付状态
+            'status' => 2 // 支付成功 // 已支付状态
         ]);
 
         $paymentData = [
