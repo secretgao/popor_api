@@ -65,8 +65,8 @@ class DashboardController extends Controller
             // 获取待支付账单数量（status = 0）
             $pendingInvoices = Invoice::where('status', 0)->count();
 
-            // 获取已支付账单数量（status = 1）
-            $paidInvoices = Invoice::where('status', 1)->count();
+            // 获取已支付账单数量（status = 2）
+            $paidInvoices = Invoice::where('status', 2)->count();
 
             // 如果是教师，只显示自己相关的数据
             if ($user->role === 'teacher') {
@@ -84,7 +84,7 @@ class DashboardController extends Controller
 
                 $paidInvoices = Invoice::whereHas('course', function($query) use ($user) {
                     $query->where('teacher_id', $user->user_id);
-                })->where('status', 1)->count();
+                })->where('status', 2)->count();
             }
 
             // 如果是学生，只显示自己的账单数据
@@ -96,7 +96,7 @@ class DashboardController extends Controller
                     ->count();
 
                 $paidInvoices = Invoice::where('student_id', $user->user_id)
-                    ->where('status', 1)
+                    ->where('status', 2)
                     ->count();
 
                 // 学生不显示教师数量，但可以显示所有课程数量

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Invoice;
 use Illuminate\Http\Request;
 use App\Services\OmiseService;
 use Illuminate\Support\Facades\Log;
@@ -97,23 +98,14 @@ class PaymentController extends Controller
      */
     public function processPayment(Request $request)
     {
-        Log::channel('omise')->info('processPayment-原始参数', [
-            'raw_data' => $request->all()
-        ]);
-        
-        // 处理可能被包装在 data 对象中的数据
         $requestData = $request->all();
-        if (isset($requestData['data']) && is_array($requestData['data'])) {
-            $requestData = $requestData['data'];
-            Log::channel('omise')->info('processPayment-解包数据', [
-                'unpacked_data' => $requestData
-            ]);
-        }
+        $userId = $request->attributes->get('auth_user')->user_id ?? null;
         
-        Log::channel('omise')->info('processPayment-最终参数', [
-            'final_data' => $requestData
+        Log::channel('omise')->info('processPayment-原始参数', [
+            'raw_data' => $requestData
         ]);
-        
+
+
         $validator = Validator::make($requestData, [
             'token' => 'required|string',
             'amount' => 'required|numeric|min:1',
@@ -132,6 +124,14 @@ class PaymentController extends Controller
                 'errors' => $validator->errors()
             ], 400);
         }
+        // 查询发票并校验幂等：只有待支付(0)允许发起
+        $invoice = Invoice::find($requestData['invoice_id']);
+        if (!$invoice) {
+            return response()->json(['success' => false, 'message' => '发票不存在'], 404);
+        }
+        if ((int)$invoice->status !== 0) {
+            return response()->json(['success' => false, 'message' => '发票已在支付流程中或已完成，拒绝重复支付'], 409);
+        }
 
         // 构建支付数据，包含 metadata
         $paymentData = $requestData;
@@ -142,14 +142,28 @@ class PaymentController extends Controller
         ];
 
         $result = $this->omiseService->processPayment($paymentData);
+        Log::channel('omise')->info('omise-processPayment-result', [
+            'result' => $result
+        ]);
 
         if ($result['success']) {
+            // 更新账单支付信息
+            Invoice::query()->where('id', $requestData['invoice_id'])->update([
+                'status' => 1, // 支付中
+                'omise_charge_id' => $result['charge_id'],
+                'payment_success' => true,
+                'payment_status' => $result['status'],
+                'payment_transaction_id' => $result['transaction_id'],
+                'payment_processed_at' => now(),
+                'paid_at' => now(),
+            ]);
+
             // 记录支付日志
             Log::channel('omise')->info('支付成功', [
                 'charge_id' => $result['charge_id'],
                 'amount' => $result['amount'],
                 'currency' => $result['currency'],
-                'user_id' => $request->attributes->get('auth_user')->user_id ?? null,
+                'user_id' => $userId,
                 'invoice_id' => $requestData['invoice_id'] ?? null,
                 'transaction_id' => $result['transaction_id']
             ]);
@@ -165,6 +179,22 @@ class PaymentController extends Controller
                 ]
             ]);
         }
+
+        // 更新账单支付失败信息
+        Invoice::query()->where('id', $requestData['invoice_id'])->update([
+            'status' => 3, // 支付失败
+            'payment_success' => false,
+            'payment_status' => 'failed',
+            'payment_error_message' => $result['error'],
+            'payment_processed_at' => now(),
+        ]);
+
+        // 记录支付失败日志
+        Log::channel('omise')->error('支付失败', [
+            'error' => $result['error'],
+            'user_id' => $request->attributes->get('auth_user')->user_id ?? null,
+            'invoice_id' => $requestData['invoice_id'] ?? null,
+        ]);
 
         return response()->json([
             'success' => false,
@@ -440,12 +470,21 @@ class PaymentController extends Controller
     private function updateInvoiceStatus($invoiceId, $status, $additionalData = [])
     {
         try {
+            // 将字符串状态转换为数字状态
+            $statusMap = [
+                'paid' => 2,      // 支付成功
+                'failed' => 3,    // 支付失败
+                'refunded' => 4,  // 已退款（如果需要的话）
+            ];
+            
+            $numericStatus = $statusMap[$status] ?? 0; // 默认为待支付
+            
             // 这里需要根据您的发票模型来更新状态
             // 假设您有一个 Invoice 模型
             $invoice = \App\Models\Invoice::find($invoiceId);
             if ($invoice) {
                 $invoice->update([
-                    'status' => $status,
+                    'status' => $numericStatus,
                     'payment_data' => array_merge($invoice->payment_data ?? [], $additionalData),
                     'updated_at' => now(),
                 ]);
@@ -453,6 +492,7 @@ class PaymentController extends Controller
                 Log::channel('omise')->info('发票状态已更新', [
                     'invoice_id' => $invoiceId,
                     'status' => $status,
+                    'numeric_status' => $numericStatus,
                     'additional_data' => $additionalData
                 ]);
             } else {

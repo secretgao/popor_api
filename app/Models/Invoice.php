@@ -23,7 +23,12 @@ class Invoice extends Model
         'currency',
         'omise_charge_id',
         'omise_source_id',
-        'omise_last_event_id'
+        'omise_last_event_id',
+        'payment_success',
+        'payment_status',
+        'payment_transaction_id',
+        'payment_error_message',
+        'payment_processed_at'
     ];
 
     protected $casts = [
@@ -34,6 +39,17 @@ class Invoice extends Model
         'updated_at' => 'datetime:Y-m-d H:i:s'
     ];
 
+    const STATUS_0 = '待支付';
+    const STATUS_1 = '支付中';
+    const STATUS_2 = '支付成功';
+    const STATUS_3 = '支付失败';
+
+    public static  $status_type = [
+            self::STATUS_0=>'待支付',
+            self::STATUS_1=>'支付中',
+            self::STATUS_2=>'支付成功',
+            self::STATUS_3=>'支付失败',
+    ];
     /**
      * 时间格式
      */
@@ -64,18 +80,7 @@ class Invoice extends Model
         return $this->belongsTo(\App\Models\AdminUser::class, 'teacher_id');
     }
 
-    /**
-     * 获取状态名称
-     */
-    public function getStatusNameAttribute(): string
-    {
-        return match($this->status) {
-            0 => '待支付',
-            1 => '已支付',
-            2 => '已过期',
-            default => '未知'
-        };
-    }
+
 
     /**
      * 获取格式化的创建时间
@@ -107,5 +112,13 @@ class Invoice extends Model
     public function getFormattedPaidAtAttribute()
     {
         return $this->paid_at ? $this->paid_at->format('Y-m-d H:i:s') : null;
+    }
+
+    /**
+     * 获取状态名称
+     */
+    public function getStatusNameAttribute(): string
+    {
+        return self::$status_type[$this->status] ?? '待支付';
     }
 }

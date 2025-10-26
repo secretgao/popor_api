@@ -450,7 +450,7 @@ class InvoiceController extends Controller
                 ], 404);
             }
 
-            if ($invoice->status === 1) {
+            if ($invoice->status === 2) {
                 return response()->json([
                     'success' => false,
                     'message' => '已支付的账单无法修改'
@@ -483,10 +483,11 @@ class InvoiceController extends Controller
     private function getStatusName($status)
     {
         switch ($status) {
-            case 0: return '待支付';
-            case 1: return '已支付';
-            case 2: return '已过期';
-            default: return '未知';
+            case 0: return 0;      // 待支付
+            case 1: return 1;       // 支付中
+            case 2: return 2;      // 支付成功
+            case 3: return 3;       // 支付失败
+            default: return 0;
         }
     }
 }

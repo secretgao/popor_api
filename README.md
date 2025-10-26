@@ -394,7 +394,7 @@ CREATE TABLE invoices (
     student_id BIGINT NOT NULL,
     course_id BIGINT NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
-    status INTEGER DEFAULT 0, -- 0=pending, 1=paid
+    status INTEGER DEFAULT 0, -- 0=待支付, 1=支付中, 2=支付成功, 3=支付失败
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     deleted_at TIMESTAMP

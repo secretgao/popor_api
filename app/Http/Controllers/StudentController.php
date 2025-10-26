@@ -444,9 +444,10 @@ class StudentController extends Controller
     {
         switch ($status) {
             case 0: return '待支付';
-            case 1: return '已支付';
-            case 2: return '已过期';
-            default: return '未知';
+            case 1: return '支付中'; 
+            case 2: return '支付成功';
+            case 3: return '支付失败';
+            default: return '待支付';
         }
     }
 
