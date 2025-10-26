@@ -552,3 +552,9 @@ http://api.localhost/api/docs
 ---
 
 **注意**: 这是基于 Laravel 的 RESTful API 系统，提供完整的教育管理功能，包括用户认证、课程管理、学生管理、账单管理和支付功能。系统具有良好的安全性和可扩展性。
+
+Public key
+pkey_test_65ggqd9jdlaax89pkex
+
+Secret key
+skey_test_65ggqda75e2fzsxfvty
