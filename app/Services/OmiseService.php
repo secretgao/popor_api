@@ -83,13 +83,20 @@ class OmiseService
     public function processPayment(array $paymentData)
     {
         try {
-            $charge = Charge::create([
+            $chargeParams = [
                 'amount' => $paymentData['amount'] * 100, // 转换为分
                 'currency' => $paymentData['currency'] ?? 'THB',
                 'card' => $paymentData['token'],
                 'description' => $paymentData['description'] ?? '教育费用',
                 'capture' => true, // 立即捕获支付
-            ]);
+            ];
+
+            // 添加 metadata 支持
+            if (isset($paymentData['metadata']) && is_array($paymentData['metadata'])) {
+                $chargeParams['metadata'] = $paymentData['metadata'];
+            }
+
+            $charge = Charge::create($chargeParams);
 
             $this->logger->info('Omise 支付处理成功', [
                 'charge_id' => $charge['id'],
@@ -98,6 +105,7 @@ class OmiseService
                 'currency' => $charge['currency'],
                 'transaction_id' => $charge['transaction'],
                 'description' => $paymentData['description'] ?? null,
+                'metadata' => $paymentData['metadata'] ?? null,
             ]);
 
             return [
@@ -117,6 +125,7 @@ class OmiseService
                     'currency' => $paymentData['currency'] ?? null,
                     'description' => $paymentData['description'] ?? null,
                     'token' => $paymentData['token'] ?? null,
+                    'metadata' => $paymentData['metadata'] ?? null,
                 ]
             ]);
             return [
