@@ -84,9 +84,15 @@ class InvoiceController extends Controller
                     'created_at'
                 ]);
 
-            // 如果是学生，只能看到自己的账单
+            // 如果是学生，只能看到自己的账单，且状态不等于0（已发送的账单）
             if ($user->role === 'student') {
                 $query->where('student_id', $user->user_id);
+                $query->whereIn('status', [
+                    Invoice::STATUS_PENDING,
+                    Invoice::STATUS_PROCESSING,
+                    Invoice::STATUS_PAID,
+                    Invoice::STATUS_FAILED
+                ]);
             }
 
             // 如果是教师，只能看到自己的账单
@@ -259,7 +265,7 @@ class InvoiceController extends Controller
                 'teacher_id' => $user->user_id, // 记录教师ID
                 'amount' => $request->amount,
                 'year_month' => $request->year_month,
-                'status' => 0, // 待支付
+                'status' => Invoice::STATUS_DRAFT, // 待发送
                 'description' => $request->description,
                 'currency' => 'JPY'
             ]);
@@ -460,10 +466,10 @@ class InvoiceController extends Controller
                 ], 404);
             }
 
-            if ($invoice->status === 2) {
+            if ($invoice->status === Invoice::STATUS_PROCESSING) {
                 return response()->json([
                     'success' => false,
-                    'message' => '已支付的账单无法修改'
+                    'message' => '支付中的账单无法修改'
                 ], 400);
             }
 
@@ -493,12 +499,12 @@ class InvoiceController extends Controller
     private function getStatusName($status)
     {
         switch ($status) {
-            case 0: return 0;      // 待发送
-            case 1: return 1;      // 待支付
-            case 2: return 2;      // 支付中
-            case 3: return 3;      // 支付成功
-            case 4: return 4;      // 支付失败
-            default: return 0;
+            case Invoice::STATUS_DRAFT: return Invoice::STATUS_DRAFT;      // 待发送
+            case Invoice::STATUS_PENDING: return Invoice::STATUS_PENDING;  // 待支付
+            case Invoice::STATUS_PROCESSING: return Invoice::STATUS_PROCESSING; // 支付中
+            case Invoice::STATUS_PAID: return Invoice::STATUS_PAID;        // 支付成功
+            case Invoice::STATUS_FAILED: return Invoice::STATUS_FAILED;    // 支付失败
+            default: return Invoice::STATUS_DRAFT;
         }
     }
 
@@ -565,7 +571,13 @@ class InvoiceController extends Controller
 
             // 验证状态值
             $newStatus = $request->input('status');
-            if (!in_array($newStatus, [0, 1, 2, 3, 4])) {
+            if (!in_array($newStatus, [
+                Invoice::STATUS_DRAFT,
+                Invoice::STATUS_PENDING,
+                Invoice::STATUS_PROCESSING,
+                Invoice::STATUS_PAID,
+                Invoice::STATUS_FAILED
+            ])) {
                 return response()->json([
                     'success' => false,
                     'message' => '无效的状态值'
