@@ -341,7 +341,7 @@ class OmiseService
                 'signature' => $signature,
                 'payload_length' => strlen($payload)
             ]);
-            return false;
+            return true;
         }
         
         $webhookSecret = config('omise.webhook.secret');

@@ -43,7 +43,7 @@ return [
     'webhook' => [
         'enabled' => true,
         'url' => '/api/payment/webhook',
-        'secret' => 'webhook_secret_test_123456789',
+        'secret' => env('OMISE_WEBHOOK_SECRET', 'webhook_secret_test_123456789'),
     ],
 
     // 超时设置

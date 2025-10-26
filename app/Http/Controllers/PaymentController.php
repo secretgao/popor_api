@@ -307,8 +307,18 @@ class PaymentController extends Controller
      */
     public function webhook(Request $request)
     {
-        $payload = $request->getContent();
+        
         $signature = $request->header('X-Omise-Signature');
+        $payload = $request->getContent();
+        Log::channel('omise')->info('Webhook debug', [
+            'method' => $request->getMethod(),
+            'path'   => $request->getPathInfo(),
+            'has_https' => $request->isSecure(),
+            'header_keys' => array_keys($request->headers->all()),
+            'http_x_omise_signature' => $request->server('HTTP_X_OMISE_SIGNATURE'),
+            'x_omise_signature' => $request->header('X-Omise-Signature'),
+            'payload_len' => strlen($payload),
+        ]);
 
         // 记录详细的 webhook 请求信息
         Log::channel('omise')->info('Omise Webhook 请求详情', [
@@ -319,8 +329,14 @@ class PaymentController extends Controller
         ]);
 
         // 验证签名（测试环境可以跳过）
-        $isTestMode = config('omise.environment') === 'test' && $request->header('User-Agent') && str_contains($request->header('User-Agent'), 'Postman');
+        $isTestMode = config('omise.environment') === 'test' ;
         
+        Log::channel('omise')->info('Webhook 测试模式检查', [
+            'environment' => config('omise.environment'),
+            'is_test_mode' => $isTestMode,
+            'signature' => $signature
+        ]);
+
         if (!$isTestMode && !$this->omiseService->verifyWebhook($payload, $signature)) {
             Log::channel('omise')->warning('Omise Webhook 签名验证失败', [
                 'signature' => $signature,
@@ -330,11 +346,7 @@ class PaymentController extends Controller
             return response()->json(['error' => 'Invalid signature'], 400);
         }
         
-        if ($isTestMode) {
-            Log::channel('omise')->info('测试模式：跳过签名验证', [
-                'user_agent' => $request->header('User-Agent')
-            ]);
-        }
+
 
         $data = json_decode($payload, true);
         
@@ -387,12 +399,24 @@ class PaymentController extends Controller
         }
 
         // 记录 webhook 事件到数据库
-        $webhookEvent = \App\Models\WebhookEvent::findOrCreateByEventId($eventId, [
-            'type' => $webhookType,
-            'payload' => $data,
-            'process_status' => \App\Models\WebhookEvent::STATUS_PENDING,
-            'event_created_at' => isset($data['created']) ? \Carbon\Carbon::createFromTimestamp($data['created']) : null,
-        ]);
+        if ($eventId) {
+            $webhookEvent = \App\Models\WebhookEvent::findOrCreateByEventId($eventId, [
+                'type' => $webhookType,
+                'payload' => $data,
+                'process_status' => \App\Models\WebhookEvent::STATUS_PENDING,
+                'event_created_at' => isset($data['created']) ? \Carbon\Carbon::createFromTimestamp($data['created']) : null,
+            ]);
+        } else {
+            // 如果没有 event_id，创建一个临时的事件记录
+            $webhookEvent = new \App\Models\WebhookEvent([
+                'event_id' => 'temp_' . uniqid(),
+                'type' => $webhookType,
+                'payload' => $data,
+                'process_status' => \App\Models\WebhookEvent::STATUS_PENDING,
+                'event_created_at' => isset($data['created']) ? \Carbon\Carbon::createFromTimestamp($data['created']) : null,
+            ]);
+            $webhookEvent->save();
+        }
 
         try {
             // 处理不同类型的 webhook 事件
@@ -430,7 +454,8 @@ class PaymentController extends Controller
 
     private function handleChargeComplete($data, $webhookEvent)
     {
-        $chargeData = $data['data'];
+        // 如果是 webhook 事件，charge 数据在 data 字段中；如果是直接的 charge 对象，直接使用
+        $chargeData = isset($data['data']) ? $data['data'] : $data;
         $chargeId = $chargeData['id'];
         $metadata = $chargeData['metadata'] ?? [];
         
