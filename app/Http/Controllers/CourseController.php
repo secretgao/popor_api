@@ -132,7 +132,7 @@ class CourseController extends Controller
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:200',
                 'year_month' => 'required|string|size:6',
-                'fee' => 'required|numeric|min:0'
+                'fee' => 'required|numeric|min:100'
             ]);
 
             if ($validator->fails()) {
@@ -224,7 +224,7 @@ class CourseController extends Controller
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:200',
                 'year_month' => 'required|string|size:6',
-                'fee' => 'required|numeric|min:0'
+                'fee' => 'required|numeric|min:100'
             ]);
 
             if ($validator->fails()) {
