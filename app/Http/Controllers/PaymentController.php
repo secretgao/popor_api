@@ -497,7 +497,7 @@ class PaymentController extends Controller
             $this->updateInvoiceStatus($metadata['invoice_id'], Invoice::STATUS_PAID, [
                 'omise_charge_id' => $chargeId,
                 'transaction_id' => $chargeData['transaction'] ?? null,
-                'amount' => $chargeData['amount'] / 100, // 转换回元
+                'amount' => $chargeData['amount'], // 转换回元
                 'currency' => $chargeData['currency'],
                 'paid_at' => now(),
             ]);
@@ -556,7 +556,7 @@ class PaymentController extends Controller
             $this->updateInvoiceStatus($metadata['invoice_id'], Invoice::STATUS_REFUNDED, [
                 'refund_id' => $refundData['id'],
                 'omise_charge_id' => $chargeId,
-                'refund_amount' => $refundData['amount'] / 100, // 转换回元
+                'refund_amount' => $refundData['amount'], // 转换回元
                 'currency' => $refundData['currency'],
                 'refunded_at' => now(),
             ]);

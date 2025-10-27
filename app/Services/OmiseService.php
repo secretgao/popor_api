@@ -150,7 +150,7 @@ class OmiseService
                     // 使用日元重新尝试
                     $fallbackParams = $chargeParams;
                     $fallbackParams['currency'] = 'JPY';
-                    $fallbackParams['amount'] = intval($amount * 100); // 转换为日元
+                    $fallbackParams['amount'] = intval($amount); // 转换为日元
                     
                     $charge = \OmiseCharge::create($fallbackParams);
                     
