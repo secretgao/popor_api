@@ -15,7 +15,8 @@ class Course extends Model
         'name',
         'description',
         'fee',
-        'teacher_id'
+        'teacher_id',
+        "year_month",
     ];
 
     protected $casts = [
