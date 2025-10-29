@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Invoice;
+use App\Services\PaymentService;
+use App\Http\Requests\Payment\ProcessPaymentRequest;
+use App\Http\Requests\Payment\RefundRequest;
 use Illuminate\Http\Request;
-use App\Services\OmiseService;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 
 /**
  * @OA\Tag(
@@ -14,13 +13,13 @@ use Illuminate\Support\Facades\Validator;
  *     description="支付相关接口"
  * )
  */
-class PaymentController extends Controller
+class PaymentController extends BaseController
 {
-    protected $omiseService;
+    protected $paymentService;
 
-    public function __construct(OmiseService $omiseService)
+    public function __construct(PaymentService $paymentService)
     {
-        $this->omiseService = $omiseService;
+        $this->paymentService = $paymentService;
     }
 
     /**
@@ -45,15 +44,13 @@ class PaymentController extends Controller
      */
     public function getConfig()
     {
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'public_key' => $this->omiseService->getPublicKey(),
-                'environment' => $this->omiseService->isTestEnvironment() ? 'test' : 'live',
-                'supported_currencies' => config('omise.supported_currencies'),
-                'payment_methods' => config('omise.payment_methods'),
-            ]
-        ]);
+        try {
+            $result = $this->paymentService->getPaymentConfig();
+
+            return $this->success($result, '获取支付配置成功');
+        } catch (\Exception $e) {
+            return $this->handleServiceException($e);
+        }
     }
 
 
@@ -96,114 +93,20 @@ class PaymentController extends Controller
      *     )
      * )
      */
-    public function processPayment(Request $request)
+    public function processPayment(ProcessPaymentRequest $request)
     {
-        $requestData = $request->all();
-        
-        $userId = $this->requireAuthUserId($request);
-        if ($userId instanceof \Illuminate\Http\JsonResponse) {
-            return $userId;
+        try {
+            $user = $this->requireAuthUser($request);
+            if ($user instanceof \Illuminate\Http\JsonResponse) {
+                return $user;
+            }
+
+            $result = $this->paymentService->processPayment($request, $user->user_id);
+
+            return $this->success($result, '支付处理成功');
+        } catch (\Exception $e) {
+            return $this->handleServiceException($e);
         }
-        
-        Log::channel('omise')->info('processPayment-原始参数', [
-            'raw_data' => $requestData
-        ]);
-
-
-        $validator = Validator::make($requestData, [
-            'token' => 'required|string',
-            'amount' => 'required|numeric|min:1',
-            'currency' => 'required|string|in:THB,USD,EUR,JPY,SGD',
-            'description' => 'nullable|string|max:255',
-            'invoice_id' => 'required|int|max:255', // 添加发票ID支持
-        ]);
-
-        if ($validator->fails()) {
-            Log::channel('omise')->error('processPayment-验证失败', [
-                'errors' => $validator->errors()
-            ]);
-            return response()->json([
-                'success' => false,
-                'message' => '验证失败',
-                'errors' => $validator->errors()
-            ], 400);
-        }
-        // 查询发票并校验幂等：只有待支付(0)允许发起
-        $invoice = Invoice::find($requestData['invoice_id']);
-        if (!$invoice) {
-            return response()->json(['success' => false, 'message' => '发票不存在'], 404);
-        }
-        if ((int)$invoice->status !== Invoice::STATUS_PENDING) {
-            return response()->json(['success' => false, 'message' => '发票已在支付流程中或已完成，拒绝重复支付'], 409);
-        }
-
-        // 构建支付数据，包含 metadata
-        $paymentData = $requestData;
-        $paymentData['metadata'] = [
-            'invoice_id' => $requestData['invoice_id'] ?? null,
-            'user_id' => $userId,
-            'timestamp' => now()->toISOString(),
-        ];
-
-        $result = $this->omiseService->processPayment($paymentData);
-        Log::channel('omise')->info('omise-processPayment-result', [
-            'result' => $result
-        ]);
-
-        if ($result['success']) {
-            // 更新账单支付信息
-            Invoice::query()->where('id', $requestData['invoice_id'])->update([
-                'status' =>Invoice::STATUS_PROCESSING, // 支付中
-                'omise_charge_id' => $result['charge_id'],
-                'payment_success' => true,
-                'payment_status' => $result['status'],
-                'payment_transaction_id' => $result['transaction_id'],
-                'payment_processed_at' => now(),
-                'paid_at' => now(),
-            ]);
-
-            // 记录支付日志
-            Log::channel('omise')->info('支付成功', [
-                'charge_id' => $result['charge_id'],
-                'amount' => $result['amount'],
-                'currency' => $result['currency'],
-                'user_id' => $userId,
-                'invoice_id' => $requestData['invoice_id'] ?? null,
-                'transaction_id' => $result['transaction_id']
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'charge_id' => $result['charge_id'],
-                    'status' => $result['status'],
-                    'amount' => $result['amount'],
-                    'currency' => $result['currency'],
-                    'transaction_id' => $result['transaction_id']
-                ]
-            ]);
-        }
-
-        // 更新账单支付失败信息
-        Invoice::query()->where('id', $requestData['invoice_id'])->update([
-            'status' => Invoice::STATUS_FAILED, // 支付失败
-            'payment_success' => false,
-            'payment_status' => 'failed',
-            'payment_error_message' => $result['error'],
-            'payment_processed_at' => now(),
-        ]);
-
-        // 记录支付失败日志
-        Log::channel('omise')->error('支付失败', [
-            'error' => $result['error'],
-            'user_id' => $userId,
-            'invoice_id' => $requestData['invoice_id'] ?? null,
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => $result['error']
-        ], 400);
     }
 
     /**
@@ -232,19 +135,13 @@ class PaymentController extends Controller
      */
     public function getCharge(string $chargeId)
     {
-        $result = $this->omiseService->getCharge($chargeId);
+        try {
+            $result = $this->paymentService->getCharge($chargeId);
 
-        if ($result['success']) {
-            return response()->json([
-                'success' => true,
-                'data' => $result['charge']
-            ]);
+            return $this->success($result, '获取支付详情成功');
+        } catch (\Exception $e) {
+            return $this->handleServiceException($e);
         }
-
-        return response()->json([
-            'success' => false,
-            'message' => $result['error']
-        ], 404);
     }
 
     /**
@@ -271,39 +168,15 @@ class PaymentController extends Controller
      *     )
      * )
      */
-    public function refund(Request $request)
+    public function refund(RefundRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'charge_id' => 'required|string',
-            'amount' => 'nullable|numeric|min:1',
-        ]);
+        try {
+            $result = $this->paymentService->processRefund($request);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => '验证失败',
-                'errors' => $validator->errors()
-            ], 400);
+            return $this->success($result, '退款处理成功');
+        } catch (\Exception $e) {
+            return $this->handleServiceException($e);
         }
-
-        $result = $this->omiseService->refund(
-            $request->charge_id,
-            $request->amount ? $request->amount * 100 : null
-        );
-
-        if ($result['success']) {
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'refund_id' => $result['refund_id']
-                ]
-            ]);
-        }
-
-        return response()->json([
-            'success' => false,
-            'message' => $result['error']
-        ], 400);
     }
 
     /**
@@ -347,315 +220,18 @@ class PaymentController extends Controller
      */
     public function webhook(Request $request)
     {
-        $signature = $request->header('X-Omise-Signature');
-        $payload = $request->getContent();
-        Log::channel('omise')->info('Webhook debug', [
-            'method' => $request->getMethod(),
-            'path'   => $request->getPathInfo(),
-            'has_https' => $request->isSecure(),
-            'header_keys' => array_keys($request->headers->all()),
-            'http_x_omise_signature' => $request->server('HTTP_X_OMISE_SIGNATURE'),
-            'x_omise_signature' => $request->header('X-Omise-Signature'),
-            'payload_len' => strlen($payload),
-        ]);
-
-        // 验证签名（测试环境可以跳过）
-        $isTestMode = config('omise.environment') === 'test' ;
-        if (!$isTestMode && !$this->omiseService->verifyWebhook($payload, $signature)) {
-            Log::channel('omise')->warning('Omise Webhook 签名验证失败', [
-                'signature' => $signature,
-                'payload_length' => strlen($payload),
-                'all_headers' => $request->headers->all()
-            ]);
-            return response()->json(['error' => 'Invalid signature'], 400);
-        }
-        $data = json_decode($payload, true);
-        
-        Log::channel('omise')->info('Omise Webhook 接收', [
-            'type' => $data['type'] ?? null,
-            'event_id' => $data['id'] ?? null,
-            'data' => $data['data'] ?? null,
-            'created' => $data['created'] ?? null,
-            'object' => $data['object'] ?? null
-        ]);
-
-        // 判断是 webhook 事件还是直接的对象（如 charge）
-        $isWebhookEvent = isset($data['type']) && isset($data['data']);
-        $eventId = $data['id'] ?? null;
-        
-        if ($isWebhookEvent) {
-            // 这是真正的 webhook 事件
-            $webhookType = $data['type'];
-            $eventData = $data['data'] ?? $data;
-        } else {
-
-            // 这是直接的对象（如 charge），需要根据对象类型推断事件类型
-            $objectType = $data['data']['object'] ?? 'unknown';
-
-            $status = $data['data']['status'] ?? null;
-
-            if ($objectType === 'charge') {
-                if ($status === 'successful') {
-                    $webhookType = 'charge.complete';
-                } elseif ($status === 'failed') {
-                    $webhookType = 'charge.failed';
-                } else {
-                    $webhookType = 'charge.' . $status;
-                }
-            } else {
-                $webhookType = $objectType . '.unknown';
-            }
-            
-            $eventData = $data;
-        }
-
-        // 幂等性检查：先检查事件是否已处理
-        if ($eventId) {
-            $existingEvent = \App\Models\WebhookEvent::where('event_id', $eventId)->first();
-            if ($existingEvent && $existingEvent->isProcessed()) {
-                Log::channel('omise')->info('Webhook 事件已处理，跳过', [
-                    'event_id' => $eventId,
-                    'type' => $webhookType
-                ]);
-                return response()->json(['status' => 'ok']);
-            }
-        }
-
-        // 记录 webhook 事件到数据库
-        if ($eventId) {
-            $webhookEvent = \App\Models\WebhookEvent::findOrCreateByEventId($eventId, [
-                'type' => $webhookType,
-                'payload' => $data,
-                'process_status' => \App\Models\WebhookEvent::STATUS_PENDING,
-                'event_created_at' => isset($data['created']) ? \Carbon\Carbon::createFromTimestamp($data['created']) : null,
-            ]);
-        } else {
-            // 如果没有 event_id，创建一个临时的事件记录
-            $webhookEvent = new \App\Models\WebhookEvent([
-                'event_id' => 'temp_' . uniqid(),
-                'type' => $webhookType,
-                'payload' => $data,
-                'process_status' => \App\Models\WebhookEvent::STATUS_PENDING,
-                'event_created_at' => isset($data['created']) ? \Carbon\Carbon::createFromTimestamp($data['created']) : null,
-            ]);
-            $webhookEvent->save();
-        }
-
         try {
-            // 处理不同类型的 webhook 事件
-            switch ($webhookType) {
-                case 'charge.complete':
-                    $this->handleChargeComplete($eventData, $webhookEvent);
-                    break;
-                case 'charge.failed':
-                    $this->handleChargeFailed($eventData, $webhookEvent);
-                    break;
-                case 'refund.created':
-                    $this->handleRefundCreated($eventData, $webhookEvent);
-                    break;
-                default:
-                    Log::channel('omise')->info('未处理的 Webhook 事件类型', [
-                        'type' => $webhookType,
-                        'event_id' => $eventId,
-                        'original_data' => $data
-                    ]);
-                    $webhookEvent->markAsProcessed(); // 标记为已处理，避免重复处理
-            }
+            $result = $this->paymentService->handleWebhook($request);
 
-            return response()->json(['status' => 'ok']);
+            return response()->json($result);
         } catch (\Exception $e) {
-            Log::channel('omise')->error('Webhook 处理失败', [
-                'event_id' => $eventId,
-                'type' => $webhookType,
-                'error' => $e->getMessage()
+            \Log::channel('omise')->error('Webhook 处理失败', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             
-            $webhookEvent->markAsFailed($e->getMessage());
             return response()->json(['status' => 'ok']); // 仍然返回 200，避免 Omise 重试
         }
     }
 
-    private function handleChargeComplete($data, $webhookEvent)
-    {
-        // 如果是 webhook 事件，charge 数据在 data 字段中；如果是直接的 charge 对象，直接使用
-        $chargeData = isset($data['data']) ? $data['data'] : $data;
-        $chargeId = $chargeData['id'];
-        $metadata = $chargeData['metadata'] ?? [];
-        
-        Log::channel('omise')->info('支付完成', [
-            'charge_id' => $chargeId,
-            'amount' => $chargeData['amount'],
-            'currency' => $chargeData['currency'] ?? null,
-            'status' => $chargeData['status'] ?? null,
-            'transaction_id' => $chargeData['transaction'] ?? null,
-            'metadata' => $metadata
-        ]);
-
-        // 更新发票状态（如果有 invoice_id）
-
-        if (isset($metadata['invoice_id'])) {
-            $this->updateInvoiceStatus($metadata['invoice_id'], Invoice::STATUS_PAID, [
-                'omise_charge_id' => $chargeId,
-                'transaction_id' => $chargeData['transaction'] ?? null,
-                'amount' => $chargeData['amount'], // 转换回元
-                'currency' => $chargeData['currency'],
-                'paid_at' => now(),
-            ]);
-
-            // 支付成功后，将学生和课程关联写入 course_student 表
-            $this->enrollStudentToCourse($metadata['invoice_id']);
-        }
-
-        $webhookEvent->markAsProcessed();
-    }
-
-    private function handleChargeFailed($data, $webhookEvent)
-    {
-        $chargeData = $data['data'];
-        $chargeId = $chargeData['id'];
-        $metadata = $chargeData['metadata'] ?? [];
-        
-        Log::channel('omise')->warning('支付失败', [
-            'charge_id' => $chargeId,
-            'failure_code' => $chargeData['failure_code'] ?? null,
-            'failure_message' => $chargeData['failure_message'] ?? null,
-            'amount' => $chargeData['amount'] ?? null,
-            'currency' => $chargeData['currency'] ?? null,
-            'metadata' => $metadata
-        ]);
-
-        // 更新发票状态为失败（如果有 invoice_id）
-        if (isset($metadata['invoice_id'])) {
-            $this->updateInvoiceStatus($metadata['invoice_id'], Invoice::STATUS_FAILED, [
-                'omise_charge_id' => $chargeId,
-                'failure_code' => $chargeData['failure_code'] ?? null,
-                'failure_message' => $chargeData['failure_message'] ?? null,
-                'failed_at' => now(),
-            ]);
-        }
-
-        $webhookEvent->markAsProcessed();
-    }
-
-    private function handleRefundCreated($data, $webhookEvent)
-    {
-        $refundData = $data['data'];
-        $chargeId = $refundData['charge'];
-        $metadata = $refundData['metadata'] ?? [];
-        
-        Log::channel('omise')->info('退款创建', [
-            'refund_id' => $refundData['id'],
-            'charge_id' => $chargeId,
-            'amount' => $refundData['amount'],
-            'currency' => $refundData['currency'],
-            'metadata' => $metadata
-        ]);
-
-        // 更新发票状态为已退款（如果有 invoice_id）
-        if (isset($metadata['invoice_id'])) {
-            $this->updateInvoiceStatus($metadata['invoice_id'], Invoice::STATUS_REFUNDED, [
-                'refund_id' => $refundData['id'],
-                'omise_charge_id' => $chargeId,
-                'refund_amount' => $refundData['amount'], // 转换回元
-                'currency' => $refundData['currency'],
-                'refunded_at' => now(),
-            ]);
-        }
-
-        $webhookEvent->markAsProcessed();
-    }
-
-    /**
-     * 更新发票状态
-     */
-    private function updateInvoiceStatus($invoiceId, $status, $additionalData = [])
-    {
-        try {
-            // 现在直接使用数字状态常量
-            $invoice = \App\Models\Invoice::find($invoiceId);
-            if ($invoice) {
-                $updateData = [
-                    'status' => $status,
-                    'updated_at' => now(),
-                ];
-                
-                // 合并额外数据
-                $updateData = array_merge($updateData, $additionalData);
-                
-                $invoice->update($updateData);
-
-                Log::channel('omise')->info('发票状态已更新', [
-                    'invoice_id' => $invoiceId,
-                    'status' => $status,
-                    'additional_data' => $additionalData
-                ]);
-            } else {
-                Log::channel('omise')->warning('未找到发票', [
-                    'invoice_id' => $invoiceId,
-                    'status' => $status
-                ]);
-            }
-        } catch (\Exception $e) {
-            Log::channel('omise')->error('更新发票状态失败', [
-                'invoice_id' => $invoiceId,
-                'status' => $status,
-                'error' => $e->getMessage()
-            ]);
-            throw $e;
-        }
-    }
-
-    /**
-     * 支付成功后，将学生和课程关联写入 course_student 表
-     */
-    private function enrollStudentToCourse($invoiceId)
-    {
-        try {
-            $invoice = \App\Models\Invoice::find($invoiceId);
-            if (!$invoice) {
-                Log::channel('omise')->warning('未找到发票，无法关联学生课程', [
-                    'invoice_id' => $invoiceId
-                ]);
-                return;
-            }
-
-            $studentId = $invoice->student_id;
-            $courseId = $invoice->course_id;
-
-            // 检查是否已经存在关联
-            $existingEnrollment = \DB::table('course_student')
-                ->where('student_id', $studentId)
-                ->where('course_id', $courseId)
-                ->first();
-
-            if ($existingEnrollment) {
-                Log::channel('omise')->info('学生课程关联已存在', [
-                    'student_id' => $studentId,
-                    'course_id' => $courseId,
-                    'invoice_id' => $invoiceId
-                ]);
-                return;
-            }
-
-            // 插入新的学生课程关联
-            \DB::table('course_student')->insert([
-                'student_id' => $studentId,
-                'course_id' => $courseId,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            Log::channel('omise')->info('学生课程关联创建成功', [
-                'student_id' => $studentId,
-                'course_id' => $courseId,
-                'invoice_id' => $invoiceId
-            ]);
-
-        } catch (\Exception $e) {
-            Log::channel('omise')->error('创建学生课程关联失败', [
-                'invoice_id' => $invoiceId,
-                'error' => $e->getMessage()
-            ]);
-        }
-    }
 }
